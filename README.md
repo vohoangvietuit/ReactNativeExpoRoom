@@ -2,6 +2,122 @@
 
 Enterprise-grade offline-first event-driven body management application built with React Native, Expo, and custom Android modules for secure cross-tablet synchronization, NFC member identification, and weight measurement integration.
 
+> **New to this project?** Read [docs/GUIDE.md](docs/GUIDE.md) — a full blog-style walkthrough for building a project like this from scratch.
+
+---
+
+## 📱 How to Use the App
+
+### Login
+
+Open the app and sign in with your credentials. For local development use:
+
+- **Email:** `test@xpw2.com`
+- **Password:** `password`
+
+Your session token is stored securely in Android Keystore via `expo-secure-store` and restored automatically on app restart.
+
+---
+
+### Tab 1 — Session (Home)
+
+The **Session** tab is your starting point for each working session.
+
+| Action | How |
+|---|---|
+| Start a session | Tap **Start Session** — creates a `SessionStarted` event |
+| View active session | Session ID, group, member count and event count shown live |
+| View sync status | Colour-coded card showing Pending / DeviceSynced / BackendSynced counts |
+| Trigger manual sync | Tap **Trigger Sync Now** — pushes pending events to other tablets and backend |
+| End a session | Tap **End Session** — records a `SessionEnded` event |
+
+> A session must be active before recording weights, payments, or awards.
+
+---
+
+### Tab 2 — Members
+
+The **Members** tab lets you identify which member is being served.
+
+| Action | How |
+|---|---|
+| Scan NFC card | Tap **Scan NFC Card** and hold an NFC member card to the back of the tablet |
+| See member details | Name, ID, email, membership number, and last weight appear after a successful scan |
+| Cancel scan | Tap **Cancel** while scanning |
+
+NFC status (Supported / Enabled / Disabled) is shown at the top. If NFC is disabled, go to Android **Settings → NFC** and enable it.
+
+---
+
+### Tab 3 — Weigh
+
+The **Weigh** tab records body weight for the identified member.
+
+#### Using a BLE scale
+
+| Step | Action |
+|---|---|
+| 1 | Tap **Scan for Scales** — the tablet scans for Bluetooth weight scales |
+| 2 | Tap a discovered scale in the list to connect |
+| 3 | Step on the scale — live weight reading appears (value + unit + stability status) |
+| 4 | When the reading is stable, tap **Save Scale Reading** |
+
+> The app looks for Bluetooth scales advertising Weight Measurement Service (UUID 0x181D).
+
+#### Manual entry
+
+If no BLE scale is available:
+
+1. Enter the weight in the **Enter weight (kg)** field
+2. Tap **Save**
+
+Both methods record a `WeightRecorded` event linked to the current member and session.
+
+---
+
+### Tab 4 — Devices
+
+The **Devices** tab manages cross-tablet synchronisation over Wi-Fi Direct / Bluetooth.
+
+| Action | How |
+|---|---|
+| Start discovery | Tap **Scan for Devices** — starts both advertising and scanning |
+| Connect to a tablet | Tap any discovered device in the list |
+| View sync info | Shows last sync time and event counts per connected device |
+
+Once connected, events recorded on any tablet are automatically pushed to all connected tablets in the background.
+
+> Both tablets must be on the same physical network area (within ~30 m). No internet required.
+
+---
+
+### Tab 5 — Todos
+
+The **Todos** tab is a shared task list that syncs across all connected tablets.
+
+| Action | How |
+|---|---|
+| Add a task | Type in the input field and tap **Add** |
+| Complete a task | Tap the checkbox next to the task |
+| Delete a task | Tap the trash icon — a confirmation alert appears |
+
+Every change records a `TodoCreated`, `TodoUpdated`, or `TodoDeleted` event. Because todos use the same event-outbox pipeline, they demonstrate the full sync workflow and are useful for testing cross-tablet sync.
+
+---
+
+### Understanding sync status
+
+| Status | Meaning |
+|---|---|
+| **Pending** | Event recorded locally, not yet sent |
+| **DeviceSynced** | Sent to at least one nearby tablet (ACK received) |
+| **BackendSynced** | Uploaded to the backend server |
+| **Failed** | Max retries exceeded — will retry on next manual or scheduled sync |
+
+Background sync runs every **15 minutes** via WorkManager. You can always trigger an immediate sync from the Session tab.
+
+---
+
 ## 🎯 Overview
 
 XPW2 is a sophisticated mobile application designed for group fitness/wellness sessions. It enables:
@@ -68,40 +184,152 @@ ReactNativeExpoRoom/
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- **Node.js** 20.0.0+
-- **pnpm** 10.0.0+ (`npm install -g pnpm`)
-- **JDK 17** (for Android)
-- **Android SDK 35+**
-- **Git**
-
-### Installation
+### Prerequisites (one-time setup)
 
 ```bash
-# Install all dependencies
+# 1. Install Node.js 20+
+nvm install 20 && nvm use 20
+
+# 2. Install pnpm
+npm install -g pnpm@10.20.0
+
+# 3. Install all workspace dependencies (from repo root)
 pnpm install
-
-# Start Expo dev server
-npx expo start
-
-# In another terminal, run on Android device/emulator
-npx expo run:android
-
-# or use dev client
-# Press 'a' in the dev server terminal
 ```
 
-### Build Android APK
+Also required:
+- **JDK 17** — [Zulu JDK 17](https://www.azul.com/downloads/)
+- **Android Studio** — for the emulator and SDK (API 35+)
+- Set these in `~/.zshrc` or `~/.bashrc`:
 
 ```bash
-# Generate native project
-npx expo prebuild --platform android --clean
+export ANDROID_HOME=$HOME/Library/Android/sdk
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator
+```
 
-# Build unsigned debug APK
-cd apps/mobile/android && ./gradlew assembleDebug
+---
 
-# APK location: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+## 📲 How to Run — All Ways
+
+### Way 1 — `expo run:android` (recommended, auto build + launch)
+
+> Builds the APK, installs it, and starts Metro in one command.
+
+```bash
+# Start your emulator first (Android Studio → Device Manager → ▶)
+adb devices   # should show: emulator-5554   device
+
+# From repo root
+pnpm android
+
+# OR from apps/mobile
+cd apps/mobile && npx expo run:android
+```
+
+---
+
+### Way 2 — Manual Gradle build (full control)
+
+> Best when you change native Kotlin code or need to see full build output.
+
+```bash
+# Step 1 — Generate native Android project (first time, or after native changes)
+cd apps/mobile
+npx expo prebuild --platform android
+
+# Step 2 — Build the debug APK
+cd android
+./gradlew assembleDebug
+# APK → apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+
+# Step 3 — Install on emulator/device
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+
+# Step 4 — Launch the app
+adb shell am start -n com.xpw2.mobile/.MainActivity
+
+# Step 5 — Start Metro bundler (separate terminal)
+cd ../../   # back to apps/mobile
+npx expo start --port 8081
+```
+
+---
+
+### Way 3 — Re-install existing APK (skip rebuild)
+
+> APK already built — just reinstall and start Metro.
+
+```bash
+adb install -r apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+adb shell am start -n com.xpw2.mobile/.MainActivity
+cd apps/mobile && npx expo start
+```
+
+---
+
+### Way 4 — Expo Go / Dev Client (JS-only, no native modules)
+
+```bash
+cd apps/mobile
+npx expo start
+# Press 'a' → Android emulator
+# Press 'r' → reload  |  'j' → debugger  |  's' → switch mode
+```
+
+> **Note:** This project uses native modules (DataSync, NFC, BLE). Expo Go will not load them. Use Way 1 or 2 for full functionality.
+
+---
+
+### Way 5 — Release build
+
+```bash
+cd apps/mobile/android
+./gradlew assembleRelease
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+---
+
+### Way 6 — Web (no native modules)
+
+```bash
+cd apps/mobile && npx expo start --web
+# Opens at http://localhost:8081
+```
+
+---
+
+### All ways — comparison
+
+| Way | Command | Emulator needed | Native modules | Speed |
+|---|---|---|---|---|
+| `expo run:android` | `pnpm android` | Yes | ✅ | Medium |
+| Manual Gradle | `./gradlew assembleDebug` | Yes | ✅ | Slow first / fast incremental |
+| Re-install APK | `adb install -r app-debug.apk` | Yes | ✅ | Fastest after first build |
+| Expo Go | `npx expo start` | No | ❌ | Fastest |
+| Release build | `./gradlew assembleRelease` | Yes | ✅ | Slow |
+| Web | `npx expo start --web` | No | ❌ | Fast |
+
+---
+
+### Common fixes
+
+```bash
+# Clear Metro cache
+cd apps/mobile && npx expo start --clear
+
+# Regenerate native project from scratch
+cd apps/mobile && npx expo prebuild --platform android --clean
+
+# Clean Gradle and rebuild
+cd apps/mobile/android && ./gradlew clean && ./gradlew assembleDebug
+
+# APK too large / out of disk space — add ABI filter to build.gradle defaultConfig:
+# ndk { abiFilters 'arm64-v8a' }
+
+# Emulator not detected
+adb kill-server && adb start-server && adb devices
 ```
 
 ## 📚 Documentation
