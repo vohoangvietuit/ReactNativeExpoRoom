@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import React, { useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, View, ActivityIndicator } from 'react-native';
 import { Provider } from 'react-redux';
 import { Stack } from 'expo-router';
 import { store } from '@/store';
@@ -9,11 +9,19 @@ import { restoreSessionThunk } from '@/features/auth/store/authSlice';
 
 function RootNavigator() {
   const dispatch = useAppDispatch();
-  const { isAuthenticated } = useAppSelector((s) => s.auth);
+  const { isAuthenticated, isInitialized } = useAppSelector((s) => s.auth);
 
   useEffect(() => {
     dispatch(restoreSessionThunk());
   }, [dispatch]);
+
+  if (!isInitialized) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

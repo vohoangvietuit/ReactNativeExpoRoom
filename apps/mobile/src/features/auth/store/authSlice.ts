@@ -6,6 +6,7 @@ interface AuthState {
   user: UserProfile | null;
   tokens: AuthTokens | null;
   isAuthenticated: boolean;
+  isInitialized: boolean;
   isLoading: boolean;
   error: string | null;
 }
@@ -14,6 +15,7 @@ const initialState: AuthState = {
   user: null,
   tokens: null,
   isAuthenticated: false,
+  isInitialized: false,
   isLoading: false,
   error: null,
 };
@@ -66,6 +68,10 @@ const authSlice = createSlice({
         state.tokens = action.payload.tokens;
         state.user = action.payload.user;
         state.isAuthenticated = true;
+        state.isInitialized = true;
+      })
+      .addCase(restoreSessionThunk.rejected, (state) => {
+        state.isInitialized = true;
       })
       .addCase(logoutThunk.fulfilled, (state) => {
         state.user = null;

@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import * as DataSync from '@xpw2/datasync';
 import type { TodoRecord } from '@xpw2/datasync';
-import { v4 as uuidv4 } from 'uuid';
 
 interface TodoState {
   todos: TodoRecord[];
@@ -22,7 +21,7 @@ export const loadTodosThunk = createAsyncThunk('todo/loadAll', async () => {
 export const createTodoThunk = createAsyncThunk(
   'todo/create',
   async ({ title, description, sessionId }: { title: string; description?: string; sessionId: string }) => {
-    const todoId = uuidv4();
+    const todoId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 9)}`;
     await DataSync.recordEvent('TodoCreated', { todoId, title, description }, sessionId);
     return { todoId, title, description };
   }

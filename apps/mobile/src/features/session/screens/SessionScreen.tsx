@@ -2,8 +2,11 @@ import React, { useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useStore';
 import { loadSyncStatusThunk, triggerSyncThunk, schedulePeriodicSyncThunk, startOutboxThunk } from '../../sync/store/syncSlice';
-import { loadActiveSessionThunk, startSessionThunk, endSessionThunk } from '../../session/store/sessionSlice';
-import { v4 as uuidv4 } from 'uuid';
+import {
+  loadActiveSessionThunk,
+  startSessionThunk,
+  endSessionThunk,
+} from '../../session/store/sessionSlice';
 
 export default function SessionScreen() {
   const dispatch = useAppDispatch();
@@ -19,9 +22,9 @@ export default function SessionScreen() {
   const handleStartSession = useCallback(() => {
     dispatch(
       startSessionThunk({
-        groupId: `group-${uuidv4().slice(0, 8)}`,
+        groupId: `group-${Math.random().toString(36).slice(2, 10)}`,
         consultantId: user?.id ?? 'unknown',
-      })
+      }),
     ).then(() => {
       dispatch(loadActiveSessionThunk());
       dispatch(startOutboxThunk());
