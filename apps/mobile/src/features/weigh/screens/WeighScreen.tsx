@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-nativ
 import { useScaleWeight } from '@xpw2/ble-scale';
 import * as DataSync from '@xpw2/datasync';
 import { useAppSelector } from '../../../hooks/useStore';
-import { v4 as uuidv4 } from 'uuid';
 
 export default function WeighScreen() {
   const activeSession = useAppSelector((s) => s.session.activeSession);
@@ -30,13 +29,13 @@ export default function WeighScreen() {
       await DataSync.recordEvent(
         'WeightRecorded',
         {
-          recordId: uuidv4(),
+          recordId: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 9)}`,
           memberId: selectedMember.id,
           weight,
           source,
           scaleDeviceId,
         },
-        sessionId
+        sessionId,
       );
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -55,6 +54,18 @@ export default function WeighScreen() {
     if (!lastReading) return;
     handleSaveWeight(lastReading.weight, 'scale', lastReading.deviceId);
   }, [lastReading, handleSaveWeight]);
+
+  if (!activeSession) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.header}>Weigh</Text>
+        <View style={styles.noSession}>
+          <Text style={styles.noSessionText}>No active session.</Text>
+          <Text style={styles.noSessionHint}>Go to the Session tab to start one.</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -247,5 +258,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '600',
+  },
+  noSession: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  noSessionText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  noSessionHint: {
+    fontSize: 14,
+    color: '#888',
   },
 });

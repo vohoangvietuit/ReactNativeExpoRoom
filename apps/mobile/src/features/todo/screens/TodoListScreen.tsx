@@ -80,6 +80,18 @@ export default function TodoListScreen() {
     [handleToggle, handleDelete]
   );
 
+  if (!activeSession) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.header}>Todos (Sync Test)</Text>
+        <View style={styles.noSession}>
+          <Text style={styles.noSessionText}>No active session.</Text>
+          <Text style={styles.noSessionHint}>Go to the Session tab to start one.</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Todos (Sync Test)</Text>
@@ -179,5 +191,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#999',
     marginTop: 32,
+  },
+  noSession: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  noSessionText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  noSessionHint: {
+    fontSize: 14,
+    color: '#888',
   },
 });
