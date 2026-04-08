@@ -16,6 +16,8 @@ module.exports = {
       '|native-base' +
       '|react-native-svg' +
       '|immer' +
+      '|react-redux' +
+      '|@reduxjs/toolkit' +
       '|@xpw2/.*' +
       '))',
   ],

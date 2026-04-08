@@ -105,11 +105,12 @@ jest.mock('@xpw2/nfc', () => ({
   decodeNdefText: jest.fn().mockReturnValue(''),
   tagIdToHex: jest.fn().mockReturnValue(''),
   useNfcReader: jest.fn().mockReturnValue({
-    status: 'idle',
-    lastScan: null,
-    error: null,
-    startScan: jest.fn(),
-    stopScan: jest.fn(),
+    status: { isSupported: true, isEnabled: true },
+    isScanning: false,
+    lastResult: null,
+    scanForMemberCard: jest.fn().mockResolvedValue({ success: false, error: 'No tag' }),
+    readTagId: jest.fn().mockResolvedValue(null),
+    cancel: jest.fn(),
   }),
 }));
 
