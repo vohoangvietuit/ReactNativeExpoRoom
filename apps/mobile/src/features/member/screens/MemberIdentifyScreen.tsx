@@ -1,8 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useNfcReader } from '@xpw2/nfc';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useStore';
-import { identifyMemberByNfcThunk } from '../store/memberSlice';
+import { clearSelectedMember, identifyMemberByNfcThunk } from '../store/memberSlice';
 
 export default function MemberIdentifyScreen() {
   const dispatch = useAppDispatch();
@@ -10,11 +10,37 @@ export default function MemberIdentifyScreen() {
   const activeSession = useAppSelector((s) => s.session.activeSession);
   const { status, isScanning, lastResult, scanForMemberCard, cancel } = useNfcReader();
 
+  // Log whenever selectedMember changes (identify result)
+  useEffect(() => {
+    if (selectedMember) {
+      console.log('[IdentifyMember] Member resolved from NFC:', {
+        id: selectedMember.id,
+        name: selectedMember.name,
+        email: selectedMember.email,
+        nfcCardId: selectedMember.nfcCardId,
+        currentWeight: selectedMember.currentWeight,
+        membershipNumber: selectedMember.membershipNumber,
+      });
+    }
+  }, [selectedMember]);
+
   const handleScan = useCallback(async () => {
+    console.log('[IdentifyMember] Starting NFC scan...');
     const result = await scanForMemberCard();
-    if (result.success && result.card) {
-      const sessionId = activeSession?.id ?? 'test-session';
-      dispatch(identifyMemberByNfcThunk({ nfcCardId: result.card.memberId, sessionId }));
+    console.log('[IdentifyMember] Scan result:', JSON.stringify(result, null, 2));
+
+    if (result.success) {
+      // Prefer physical tag UID for lookup — falls back to NDEF memberId if no tagId
+      const lookupKey = result.tagId ?? result.card?.memberId;
+      console.log('[IdentifyMember] Looking up member by NFC key:', lookupKey, '(source: tagId)');
+      if (lookupKey) {
+        const sessionId = activeSession?.id ?? 'test-session';
+        dispatch(identifyMemberByNfcThunk({ nfcCardId: lookupKey, sessionId }));
+      } else {
+        console.warn('[IdentifyMember] Scan succeeded but no tag ID or memberId found in result');
+      }
+    } else {
+      console.warn('[IdentifyMember] Scan failed:', result.error);
     }
   }, [scanForMemberCard, dispatch, activeSession]);
 
@@ -60,18 +86,45 @@ export default function MemberIdentifyScreen() {
         <Text style={styles.error}>{lastResult.error}</Text>
       ) : null}
 
+      {lastResult && lastResult.success && !selectedMember ? (
+        <View style={styles.notFoundCard}>
+          <Text style={styles.notFoundText}>⚠️ Tag scanned but no matching member found.</Text>
+          <Text style={styles.notFoundHint}>
+            Tag UID: {lastResult.tagId ?? 'unknown'}
+          </Text>
+          <Text style={styles.notFoundHint}>Register this NFC card first.</Text>
+        </View>
+      ) : null}
+
       {selectedMember ? (
         <View style={styles.memberCard}>
-          <Text style={styles.memberName}>{selectedMember.name}</Text>
-          <Text style={styles.memberDetail}>ID: {selectedMember.id}</Text>
+          <View style={styles.memberCardHeader}>
+            <Text style={styles.memberName}>{selectedMember.name}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                console.log('[IdentifyMember] Clearing selected member');
+                dispatch(clearSelectedMember());
+              }}
+              accessibilityLabel="Clear member"
+            >
+              <Text style={styles.clearButton}>✕ Clear</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.memberDetail}>🪪 ID: {selectedMember.id}</Text>
           {selectedMember.email ? (
-            <Text style={styles.memberDetail}>Email: {selectedMember.email}</Text>
+            <Text style={styles.memberDetail}>📧 Email: {selectedMember.email}</Text>
           ) : null}
-          {selectedMember.currentWeight ? (
-            <Text style={styles.memberDetail}>Weight: {selectedMember.currentWeight} kg</Text>
+          {selectedMember.phone ? (
+            <Text style={styles.memberDetail}>📱 Phone: {selectedMember.phone}</Text>
           ) : null}
           {selectedMember.membershipNumber ? (
-            <Text style={styles.memberDetail}>Membership: {selectedMember.membershipNumber}</Text>
+            <Text style={styles.memberDetail}>🏷️ Membership: {selectedMember.membershipNumber}</Text>
+          ) : null}
+          {selectedMember.currentWeight ? (
+            <Text style={styles.memberDetail}>⚖️ Last Weight: {selectedMember.currentWeight} kg</Text>
+          ) : null}
+          {selectedMember.nfcCardId ? (
+            <Text style={styles.memberDetail}>📳 NFC UID: {selectedMember.nfcCardId}</Text>
           ) : null}
         </View>
       ) : null}
@@ -130,15 +183,46 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#007AFF',
   },
+  memberCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
   memberName: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 8,
+    flex: 1,
+  },
+  clearButton: {
+    fontSize: 13,
+    color: '#888',
+    fontWeight: '600',
+    paddingLeft: 8,
   },
   memberDetail: {
     fontSize: 14,
-    color: '#666',
+    color: '#555',
     marginBottom: 4,
+  },
+  notFoundCard: {
+    backgroundColor: '#FFF8E1',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFC107',
+  },
+  notFoundText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#856404',
+    marginBottom: 4,
+  },
+  notFoundHint: {
+    fontSize: 12,
+    color: '#856404',
+    fontFamily: 'monospace',
   },
   noSession: {
     flex: 1,
