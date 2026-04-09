@@ -13,6 +13,7 @@
 5. [Project Structure Deep Dive](#5-project-structure-deep-dive)
 6. [Event Model — The Heart of Everything](#6-event-model--the-heart-of-everything)
 7. [Package-by-Package Walkthrough](#7-package-by-package-walkthrough)
+   - [7.4 How JS Talks to Kotlin — The Bridge Explained](#74-how-js-talks-to-kotlin--the-bridge-explained)
 8. [Building the Mobile App Feature-by-Feature](#8-building-the-mobile-app-feature-by-feature)
 9. [Running Locally](#9-running-locally)
 10. [Testing](#10-testing)
@@ -255,18 +256,109 @@ pnpm install
 
 ### Workspace dependency diagram
 
+> Who imports whom. Arrows point from consumer to dependency.
+
 ```mermaid
 graph LR
-    mobile["apps/mobile"] --> shared["@xpw2/shared"]
-    mobile --> ui["@xpw2/ui"]
-    mobile --> datasync["@xpw2/datasync"]
-    mobile --> nfc["@xpw2/nfc"]
-    mobile --> ble["@xpw2/ble-scale"]
+    mobile["apps/mobile\n(Expo RN App)"]
+
+    subgraph packages
+        shared["@xpw2/shared\n(TS types only)"]
+        ui["@xpw2/ui\n(RN components)"]
+        datasync["@xpw2/datasync\n(Expo Native Module)"]
+        nfc["@xpw2/nfc\n(NFC hook wrapper)"]
+        ble["@xpw2/ble-scale\n(BLE hook wrapper)"]
+        tsconfig["@xpw2/tsconfig\n(shared TS configs)"]
+    end
+
+    mobile --> shared
+    mobile --> ui
+    mobile --> datasync
+    mobile --> nfc
+    mobile --> ble
 
     ui --> shared
     datasync --> shared
     nfc --> shared
     ble --> shared
+
+    mobile -.->|extends| tsconfig
+    ui -.->|extends| tsconfig
+    datasync -.->|extends| tsconfig
+    shared -.->|extends| tsconfig
+```
+
+---
+
+### How pnpm resolves workspace packages
+
+When you run `pnpm install`, pnpm reads `pnpm-workspace.yaml` and creates **symlinks** in `node_modules/`. No package is published to npm.
+
+```mermaid
+flowchart TD
+    WS["pnpm-workspace.yaml\napps/*\npackages/*"]
+
+    WS --> NM
+
+    subgraph NM["node_modules/ (after pnpm install)"]
+        L1["@xpw2/shared\n→ symlink → packages/shared"]
+        L2["@xpw2/datasync\n→ symlink → packages/datasync"]
+        L3["@xpw2/ui\n→ symlink → packages/ui"]
+    end
+
+    NM -->|import '@xpw2/datasync'| TS["TypeScript resolves\npackages/datasync/src/index.ts"]
+    NM -->|Expo autolinking scans| AL["expo-module.config.json\nfound in packages/datasync"]
+    AL -->|registers| KT["ExpoDataSyncModule.kt\ncompiled into APK"]
+```
+
+---
+
+### How Turborepo orchestrates the build
+
+`turbo run build` runs tasks in dependency order — `shared` always builds before anything that imports it.
+
+```mermaid
+graph TD
+    turbo["turbo run build"]
+
+    turbo --> B_tsconfig["build: @xpw2/tsconfig\n(no deps — runs first)"]
+    B_tsconfig --> B_shared["build: @xpw2/shared\ntsc → dist/"]
+    B_shared --> B_ui["build: @xpw2/ui\ntsc → dist/"]
+    B_shared --> B_datasync["build: @xpw2/datasync\ntsc → dist/"]
+    B_shared --> B_nfc["build: @xpw2/nfc\ntsc → dist/"]
+    B_shared --> B_ble["build: @xpw2/ble-scale\ntsc → dist/"]
+    B_ui --> B_mobile["build: apps/mobile\n(no TypeScript output —\nbundled by Metro)"]
+    B_datasync --> B_mobile
+    B_nfc --> B_mobile
+    B_ble --> B_mobile
+
+    style turbo fill:#208AEF,color:#fff
+    style B_mobile fill:#34C759,color:#fff
+```
+
+> `turbo.json` rule: `"build": { "dependsOn": ["^build"] }` — the `^` means "all upstream packages must finish first."
+
+---
+
+### Full monorepo: dev vs production flow
+
+```mermaid
+flowchart LR
+    subgraph DEV["Development (pnpm dev)"]
+        direction TB
+        Metro["Metro Bundler\n(JS hot reload)"]
+        Gradle["Gradle APK\n(native code, pre-built)"]
+        Metro -->|bundles JS| Device
+        Gradle -->|installs APK once| Device["Android Device / Emulator"]
+    end
+
+    subgraph PROD["Production (./gradlew assembleRelease)"]
+        direction TB
+        TurboB["turbo run build\n(compile TS packages)"]
+        PrebuildP["expo prebuild\n(generate android/)"]
+        GradleP["./gradlew bundleRelease\n(compile Kotlin + bundle JS)"]
+        TurboB --> PrebuildP --> GradleP --> AAB["app-release.aab\n(Play Store)"]
+    end
 ```
 
 ---
@@ -587,6 +679,651 @@ export function useNfcReader() {
 
   return { isScanning, result, startScan };
 }
+```
+
+---
+
+## 7.4 How JS Talks to Kotlin — The Bridge Explained
+
+> This section answers: *"How does `DataSync.recordEvent(...)` called in TypeScript end up running Kotlin code that writes to a Room database?"*
+
+---
+
+### Bird's-eye view: the complete connection map
+
+```mermaid
+graph TB
+    subgraph RN["React Native (JS Thread)"]
+        Screen["Screen Component\n(TodoListScreen.tsx)"]
+        Thunk["Redux Thunk\n(createTodoThunk)"]
+        TSFacade["TS Facade\npackages/datasync/src/index.ts\nrequireNativeModule('ExpoDataSync')"]
+    end
+
+    subgraph Bridge["Expo Modules Bridge (C++)"]
+        JSBridge["AsyncFunction serializer\nJS args → Kotlin types\nKotlin result → JS Promise"]
+    end
+
+    subgraph Kotlin["Native Layer (Kotlin / JVM)"]
+        Module["ExpoDataSyncModule.kt\nAsyncFunction('recordEvent') Coroutine"]
+        Engine["DataSyncEngine.kt\nSSoT coordinator"]
+        DB[("AppDatabase\nRoom + SQLCipher\nxpw2.db")]
+        Outbox["EventOutbox\n30s loop"]
+        Nearby["NearbyManager\nBluetooth/WiFi Direct"]
+        Worker["BackendSyncWorker\nWorkManager 15min"]
+        HTTP["HTTP POST\n/api/events"]
+    end
+
+    Screen -->|dispatch| Thunk
+    Thunk -->|DataSync.recordEvent| TSFacade
+    TSFacade -->|ExpoDataSync.recordEvent| JSBridge
+    JSBridge -->|Coroutine / Dispatchers.IO| Module
+    Module --> Engine
+    Engine -->|INSERT events + outbox| DB
+    Engine -->|sendEvent 'onEventRecorded'| JSBridge
+    JSBridge -->|emitter.addListener callback| Screen
+
+    DB --> Outbox
+    Outbox -->|P2P batch| Nearby
+    DB --> Worker
+    Worker --> HTTP
+
+    style RN fill:#E8F4FD,stroke:#208AEF
+    style Bridge fill:#FFF9E6,stroke:#F5A623
+    style Kotlin fill:#E8F8E8,stroke:#34C759
+```
+
+---
+
+### Build-time wiring: how Gradle knows about the Kotlin module
+
+```mermaid
+flowchart TD
+    A["pnpm install\n(creates symlinks)"] --> B
+
+    B["packages/datasync/\nexpo-module.config.json\n{ modules: ['...ExpoDataSyncModule'] }"]
+
+    B --> C["npx expo prebuild"]
+
+    C --> C1["Reads app.json plugins\n→ runs withKspPlugin.js\n→ injects KSP classpath into\nandroid/build.gradle"]
+    C --> C2["Scans node_modules for\nexpo-module.config.json\n→ generates ExpoModulesPackageList.java"]
+    C --> C3["Adds 'include :datasync'\nto android/settings.gradle\n→ Gradle finds packages/datasync/android/build.gradle"]
+
+    C1 --> D["./gradlew assembleDebug"]
+    C2 --> D
+    C3 --> D
+
+    D --> D1["KSP processes @Entity @Dao @Database\n→ generates Room DAO implementations"]
+    D --> D2["kotlinc compiles ExpoDataSyncModule.kt\nDataSyncEngine.kt NearbyManager.kt ..."]
+    D1 --> E["app-debug.apk\n(contains: JS bundle + Kotlin .dex + assets)"]
+    D2 --> E
+
+    style A fill:#208AEF,color:#fff
+    style E fill:#34C759,color:#fff
+```
+
+---
+
+### Runtime boot sequence: app launch to first screen
+
+```mermaid
+sequenceDiagram
+    participant OS as Android OS
+    participant App as MainActivity
+    participant Expo as Expo Modules Registry
+    participant DS as ExpoDataSyncModule
+    participant Metro as Metro Bundler (dev)
+    participant Redux as Redux Store
+    participant Screen as Root Screen
+
+    OS->>App: launch intent
+    App->>Expo: initialize module registry
+    Expo->>DS: new ExpoDataSyncModule() (lazy)
+    App->>Metro: request JS bundle
+    Metro-->>App: bundle.js (React tree)
+    App->>Redux: configureStore() — all slices init
+    Redux->>Screen: render <RootLayout>
+    Screen->>Redux: dispatch(checkAuthThunk)
+    Redux->>DS: DataSync.getActiveSession()
+    DS->>DS: engine lazy-init → AppDatabase.getInstance()
+    DS-->>Redux: SessionRecord | null
+    Redux-->>Screen: navigate to (tabs)/ or login
+```
+
+---
+
+### The 5 files that wire everything together
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  FILE                                     ROLE                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  apps/mobile/package.json                 Declares "@xpw2/datasync"         │
+│  packages/datasync/expo-module.config.json  Registers Kotlin class to Expo  │
+│  apps/mobile/plugins/withKspPlugin.js     Patches build.gradle (KSP, arm64) │
+│  packages/datasync/android/.../           Kotlin module entry point         │
+│    ExpoDataSyncModule.kt                                                    │
+│  packages/datasync/src/index.ts           TypeScript facade for JS callers  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Step 1 — pnpm workspace links the package
+
+In `apps/mobile/package.json`, the datasync package is declared as a **workspace dependency**:
+
+```json
+// apps/mobile/package.json
+{
+  "dependencies": {
+    "@xpw2/datasync": "workspace:*"
+  }
+}
+```
+
+The `workspace:*` protocol tells pnpm to symlink the local `packages/datasync` folder directly into `node_modules/@xpw2/datasync`. No npm registry involved. After `pnpm install`, the symlink exists:
+
+```
+apps/mobile/node_modules/@xpw2/datasync
+  → ../../packages/datasync   (symlink)
+```
+
+This means both the **TypeScript source** (`packages/datasync/src/index.ts`) and the **Android directory** (`packages/datasync/android/`) are reachable by the Expo build system.
+
+---
+
+### Step 2 — `expo-module.config.json` registers the Kotlin class
+
+```json
+// packages/datasync/expo-module.config.json
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["expo.modules.datasync.ExpoDataSyncModule"]
+  }
+}
+```
+
+When `npx expo prebuild` runs, Expo CLI scans every package in `node_modules/` for an `expo-module.config.json`. When it finds one, it:
+1. Reads the `modules` array
+2. Auto-generates `android/app/src/main/java/expo/modules/ExpoModulesPackageList.java`
+3. That file calls `new ExpoDataSyncModule()` when the app boots
+
+You never manually register modules in `MainApplication.kt` — Expo's autolinking does it.
+
+```java
+// Generated file — don't edit
+// android/app/src/.../ExpoModulesPackageList.java  (auto-generated by prebuild)
+public class ExpoModulesPackageList {
+  public static List<ExpoPackage> getPackageList() {
+    return Arrays.<ExpoPackage>asList(
+      // ...other modules...
+      new ExpoModuleRegistryAdapter(
+        new expo.modules.datasync.ExpoDataSyncModule()  // ← added because of expo-module.config.json
+      )
+    );
+  }
+}
+```
+
+---
+
+### Step 3 — `withKspPlugin.js` patches the Android build
+
+Expo modules that use **Room** need KSP (Kotlin Symbol Processing) to generate DAOs at compile time. The `withKspPlugin.js` config plugin is declared in `apps/mobile/app.json`:
+
+```json
+// apps/mobile/app.json
+{
+  "expo": {
+    "plugins": [
+      "./plugins/withKspPlugin",   // ← runs during prebuild
+      "expo-router",
+      "expo-secure-store"
+    ]
+  }
+}
+```
+
+During `expo prebuild`, Expo runs this plugin, which injects two Gradle classpath entries:
+
+```javascript
+// apps/mobile/plugins/withKspPlugin.js
+const { withProjectBuildGradle } = require('expo/config-plugins');
+
+function withKspPlugin(config) {
+  config = withProjectBuildGradle(config, (config) => {
+    let contents = config.modResults.contents;
+    if (!contents.includes('com.google.devtools.ksp')) {
+      contents = contents.replace(
+        "classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')",
+        // Inserts KSP + kotlinx-serialization right after kotlin-gradle-plugin
+        "classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')\n" +
+        "    classpath('com.google.devtools.ksp:...:2.1.20-2.0.1')\n" +
+        "    classpath('org.jetbrains.kotlin:kotlin-serialization:2.1.20')"
+      );
+    }
+    config.modResults.contents = contents;
+    return config;
+  });
+  return config;
+}
+```
+
+Without this, Room's annotation processor (`@Dao`, `@Entity`, `@Database`) cannot generate the implementation classes, and the Gradle build fails.
+
+---
+
+### Step 4 — `packages/datasync/android/build.gradle` declares all native dependencies
+
+The datasync package has its **own** `build.gradle` that declares Room, SQLCipher, Nearby, and WorkManager:
+
+```groovy
+// packages/datasync/android/build.gradle
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'com.google.devtools.ksp'      // Room annotation processor
+apply plugin: 'kotlinx-serialization'         // JSON serialization
+
+group = 'expo.modules.datasync'
+
+// Tells Gradle to use expo-modules-core's build helpers
+def expoModulesCorePlugin = new File(
+  project(":expo-modules-core").projectDir.absolutePath,
+  "ExpoModulesCorePlugin.gradle"
+)
+if (expoModulesCorePlugin.exists()) {
+  apply from: expoModulesCorePlugin
+  applyKotlinExpoModulesCorePlugin()
+}
+
+dependencies {
+  implementation project(':expo-modules-core')   // ← required for all Expo modules
+
+  // Room: local SQLite ORM with compile-time query verification
+  implementation "androidx.room:room-runtime:2.7.1"
+  implementation "androidx.room:room-ktx:2.7.1"
+  ksp "androidx.room:room-compiler:2.7.1"        // generates DAO implementations
+
+  // SQLCipher: AES-256 encryption on the Room database
+  implementation "net.zetetic:android-database-sqlcipher:4.5.4"
+  implementation "androidx.sqlite:sqlite:2.4.0"
+
+  // Google Nearby Connections: P2P sync between tablets
+  implementation "com.google.android.gms:play-services-nearby:19.3.0"
+
+  // WorkManager: reliable background sync (survives app kill, reboots)
+  implementation "androidx.work:work-runtime-ktx:2.10.0"
+}
+```
+
+Gradle includes this `build.gradle` automatically because Expo's autolinking adds a `include ':datasync'` entry in the app's `settings.gradle` during prebuild.
+
+---
+
+### Step 5 — `ExpoDataSyncModule.kt` is the JS↔Kotlin contract
+
+This single Kotlin class defines **every function** callable from JavaScript. It extends `Module` from `expo-modules-core` and uses the `ModuleDefinition` DSL:
+
+```kotlin
+// packages/datasync/android/src/main/java/expo/modules/datasync/ExpoDataSyncModule.kt
+class ExpoDataSyncModule : Module() {
+
+    // Lazy-init the heavy objects — created only on first use
+    private val engine: DataSyncEngine by lazy {
+        DataSyncEngine(appContext.reactContext!!)
+    }
+
+    override fun definition() = ModuleDefinition {
+
+        // ① The name MUST match what TypeScript calls requireNativeModule('ExpoDataSync')
+        Name("ExpoDataSync")
+
+        // ② Declare all events the module can emit to JS
+        Events(
+            "onEventRecorded",
+            "onSyncStatusChanged",
+            "onDeviceFound",
+            "onDeviceLost",
+            "onDeviceConnectionChanged"
+        )
+
+        // ③ Async function: runs on background thread, returns result to JS Promise
+        //    The 'Coroutine' infix is REQUIRED when the body calls suspend functions
+        AsyncFunction("recordEvent") Coroutine { eventType: String, payload: String, sessionId: String ->
+            val deviceId = getDeviceId()
+            val eventId = engine.recordEvent(eventType, payload, deviceId, sessionId)
+
+            // Emit event back to any JS listeners
+            sendEvent("onEventRecorded", mapOf(
+                "eventId" to eventId,
+                "eventType" to eventType,
+                "sessionId" to sessionId
+            ))
+
+            eventId   // ← this becomes the resolved Promise value in JS
+        }
+
+        AsyncFunction("getAllTodos") Coroutine { ->
+            engine.getAllTodos().map { it.toMap() }
+        }
+
+        // Functions that don't call suspend code do NOT need Coroutine infix
+        AsyncFunction("schedulePeriodicSync") {
+            SyncScheduler.schedulePeriodicBackendSync(appContext.reactContext!!)
+            "ok"
+        }
+    }
+}
+```
+
+**Rule:** Every function exposed here becomes a callable method on the native module object in JavaScript. The name must match exactly.
+
+---
+
+### Step 6 — `packages/datasync/src/index.ts` is the TypeScript facade
+
+`requireNativeModule('ExpoDataSync')` loads the Kotlin module by the name declared in `Name("ExpoDataSync")`:
+
+```typescript
+// packages/datasync/src/index.ts
+import { requireNativeModule, type EventSubscription } from 'expo-modules-core';
+
+// This line resolves at runtime to the ExpoDataSyncModule Kotlin class
+const ExpoDataSync = requireNativeModule('ExpoDataSync');
+// Cast to 'any' to add event listener support (emitter is same underlying object)
+const emitter = ExpoDataSync as any;
+
+// ─── Typed wrappers around each AsyncFunction ──────────────────────────
+
+export async function recordEvent(
+  eventType: string,
+  payload: Record<string, unknown>,
+  sessionId: string
+): Promise<string> {
+  // Kotlin receives: (String, String, String) — payload is JSON-serialized here
+  return ExpoDataSync.recordEvent(eventType, JSON.stringify(payload), sessionId);
+}
+
+export async function getAllTodos(): Promise<TodoRecord[]> {
+  return ExpoDataSync.getAllTodos();
+}
+
+// ─── Event listeners that receive Kotlin sendEvent() calls ────────────
+
+export function addEventRecordedListener(
+  callback: (event: EventRecordedPayload) => void
+): EventSubscription {
+  return emitter.addListener('onEventRecorded', callback);
+}
+```
+
+Now any feature in `apps/mobile` can do:
+
+```typescript
+import * as DataSync from '@xpw2/datasync';
+
+const todos = await DataSync.getAllTodos();  // calls Kotlin, returns JS array
+```
+
+---
+
+### Step 7 — Complete call trace: `dispatch(createTodoThunk)`
+
+Tracing a single user action — "user creates a todo" — all the way to the database:
+
+```
+1. [Screen]        user presses "Add"
+                   ↓ handlePress calls:
+                   dispatch(createTodoThunk({ title: 'Buy milk', sessionId }))
+
+2. [Redux Thunk]   createTodoThunk body executes:
+                   await DataSync.recordEvent('TodoCreated', { todoId, title }, sessionId)
+                   ↓
+                   // DataSync.recordEvent is the TS function in packages/datasync/src/index.ts
+
+3. [TS Facade]     packages/datasync/src/index.ts:
+                   ExpoDataSync.recordEvent('TodoCreated', '{"todoId":"...","title":"Buy milk"}', sessionId)
+                   ↓
+                   // This crosses the JS Bridge into native code
+
+4. [JS Bridge]     Expo Modules API serializes the 3 string arguments
+                   and invokes ExpoDataSyncModule.kt::AsyncFunction("recordEvent") Coroutine { ... }
+                   ↓
+                   // Kotlin coroutine launches on Dispatchers.IO
+
+5. [Kotlin]        ExpoDataSyncModule.kt:
+                   val eventId = engine.recordEvent(eventType, payload, deviceId, sessionId)
+                   ↓
+                   // Delegates to the DataSyncEngine
+
+6. [DataSyncEngine.kt]:
+                   val event = EventEntity(eventId = UUID.randomUUID(), ...)
+                   val outbox = OutboxEntity(eventId = eventId, status = "Pending")
+                   db.eventDao().insert(event)       // Room: INSERT INTO events ...
+                   db.outboxDao().insert(outbox)     // Room: INSERT INTO outbox ...
+                   applyEventSideEffects(...)         // updates todos table
+                   return eventId
+
+7. [Kotlin → JS]   ExpoDataSyncModule.kt:
+                   sendEvent("onEventRecorded", mapOf("eventId" to eventId, ...))
+                   return eventId   // resolves the JS Promise
+
+8. [Redux Thunk]   createTodoThunk.fulfilled fires
+                   extraReducers handles it → reloads todos from DB
+                   ↓
+                   dispatch(loadTodosThunk())  → DataSync.getAllTodos()  → Kotlin reads Room
+
+9. [Screen]        useAppSelector(selectTodos) re-renders with the new list
+```
+
+---
+
+### Step 8 — The Room database layer (Kotlin)
+
+Room provides type-safe SQL via annotations. Each database entity is a `data class`:
+
+```kotlin
+// packages/datasync/android/src/main/java/expo/modules/datasync/db/entities/EventEntity.kt
+@Entity(tableName = "events")
+data class EventEntity(
+    @PrimaryKey @ColumnInfo(name = "event_id") val eventId: String,
+    @ColumnInfo(name = "device_id")            val deviceId: String,
+    @ColumnInfo(name = "session_id")           val sessionId: String,
+    @ColumnInfo(name = "event_type")           val eventType: String,
+    @ColumnInfo(name = "occurred_at")          val occurredAt: Long,
+    val payload: String,           // JSON blob
+    @ColumnInfo(name = "idempotency_key") val idempotencyKey: String,
+    @ColumnInfo(name = "correlation_id") val correlationId: String,
+    @ColumnInfo(name = "created_at")     val createdAt: Long
+)
+
+// packages/.../db/entities/OutboxEntity.kt
+@Entity(
+    tableName = "outbox",
+    foreignKeys = [ForeignKey(
+        entity = EventEntity::class,
+        parentColumns = ["event_id"],
+        childColumns = ["event_id"],
+        onDelete = ForeignKey.CASCADE   // delete outbox row when event deleted
+    )],
+    indices = [Index("event_id", unique = true), Index("status")]
+)
+data class OutboxEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "event_id")   val eventId: String,
+    val status: String = "Pending",  // Pending → DeviceSynced → BackendSynced
+    @ColumnInfo(name = "retry_count") val retryCount: Int = 0,
+    // ...
+)
+```
+
+`AppDatabase.kt` wires everything together with SQLCipher encryption:
+
+```kotlin
+// packages/.../db/AppDatabase.kt
+@Database(entities = [EventEntity::class, OutboxEntity::class, TodoEntity::class, /* ... */], version = 1)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun eventDao(): EventDao
+    abstract fun outboxDao(): OutboxDao
+    abstract fun todoDao(): TodoDao
+    // ...one abstract fun per entity
+
+    companion object {
+        fun getInstance(context: Context): AppDatabase {
+            // KeystoreHelper generates a random AES key stored in Android Keystore
+            val passphrase = KeystoreHelper.getOrCreatePassphrase(context)
+            val factory = SupportFactory(passphrase)  // ← SQLCipher factory
+            return Room.databaseBuilder(context, AppDatabase::class.java, "xpw2.db")
+                .openHelperFactory(factory)
+                .build()
+        }
+    }
+}
+```
+
+---
+
+### Step 9 — The Outbox: how events leave the device
+
+```
+Pending outbox entries are processed by EventOutbox.kt (30-second loop) and
+BackendSyncWorker.kt (WorkManager, 15-minute periodic job).
+
+EventOutbox (device-to-device via Nearby):
+  1. Query outbox WHERE status = 'Pending' LIMIT 50
+  2. Serialize events to JSON batch
+  3. NearbyManager.sendPayload(endpointId, batchData)   ← Bluetooth / WiFi Direct
+  4. On ACK received: UPDATE outbox SET status = 'DeviceSynced'
+  5. Emit "onSyncStatusChanged" event to JS
+
+BackendSyncWorker (device-to-server via HTTP):
+  1. Query outbox WHERE status = 'DeviceSynced' LIMIT 100
+  2. HTTP POST /api/events  (batch upload)
+  3. On 200 OK: UPDATE outbox SET status = 'BackendSynced'
+  4. WorkManager handles retry with exponential backoff
+```
+
+---
+
+### How to recreate the Kotlin bridge from scratch
+
+Follow these steps in order to build your own native Expo module:
+
+#### Step A — Create the package skeleton
+
+```bash
+mkdir -p packages/mymodule/android/src/main/java/expo/modules/mymodule
+mkdir -p packages/mymodule/src
+
+# Create package.json
+cat > packages/mymodule/package.json << 'EOF'
+{
+  "name": "@myapp/mymodule",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.ts"
+}
+EOF
+
+# Register the Kotlin class
+cat > packages/mymodule/expo-module.config.json << 'EOF'
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["expo.modules.mymodule.MyModule"]
+  }
+}
+EOF
+```
+
+#### Step B — Write the Kotlin Module class
+
+```kotlin
+// packages/mymodule/android/src/main/java/expo/modules/mymodule/MyModule.kt
+package expo.modules.mymodule
+
+import expo.modules.kotlin.modules.Module
+import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.kotlin.functions.Coroutine
+
+class MyModule : Module() {
+    override fun definition() = ModuleDefinition {
+        Name("MyModule")               // ← must match requireNativeModule('MyModule')
+
+        Events("onDataChanged")        // ← events you want to send to JS
+
+        // Sync function (no suspend, runs on calling thread)
+        Function("getVersion") { -> "1.0.0" }
+
+        // Async function with coroutine (use when calling suspend APIs like Room)
+        AsyncFunction("fetchData") Coroutine { id: String ->
+            // Do suspend work here (Room query, network call, etc.)
+            mapOf("id" to id, "value" to "hello")
+        }
+    }
+}
+```
+
+#### Step C — Write the TypeScript facade
+
+```typescript
+// packages/mymodule/src/index.ts
+import { requireNativeModule } from 'expo-modules-core';
+
+const MyModule = requireNativeModule('MyModule');
+
+export function getVersion(): string {
+  return MyModule.getVersion();
+}
+
+export async function fetchData(id: string): Promise<{ id: string; value: string }> {
+  return MyModule.fetchData(id);
+}
+```
+
+#### Step D — Add the module as a workspace dependency
+
+```json
+// apps/mobile/package.json
+{
+  "dependencies": {
+    "@myapp/mymodule": "workspace:*"
+  }
+}
+```
+
+#### Step E — Run prebuild and build
+
+```bash
+pnpm install                          # symlinks packages/mymodule into node_modules
+npx expo prebuild --platform android  # reads expo-module.config.json, generates autolinking
+cd apps/mobile/android && ./gradlew assembleDebug   # compiles Kotlin, generates Room DAOs
+```
+
+> **Important:** Any time you add a new `AsyncFunction`, `Function`, or `Event` in Kotlin, you must rebuild Gradle. Metro hot-reload does not recompile native code.
+
+---
+
+### Reference: what happens during `expo prebuild`
+
+```
+npx expo prebuild --platform android
+│
+├─ Reads app.json → runs config plugins
+│   └─ withKspPlugin.js → injects KSP classpath into android/build.gradle
+│
+├─ Scans node_modules/**/expo-module.config.json
+│   └─ finds @xpw2/datasync → "modules": ["expo.modules.datasync.ExpoDataSyncModule"]
+│
+├─ Generates android/app/src/.../ExpoModulesPackageList.java
+│   └─ registers ExpoDataSyncModule in the app's module registry
+│
+├─ Generates android/settings.gradle  include ':datasync'
+│   └─ Gradle now finds packages/datasync/android/build.gradle
+│
+└─ Generates android/gradle.properties
+    └─ reactNativeArchitectures=arm64-v8a  (from withKspPlugin.js)
 ```
 
 ---
