@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useNfcReader } from '@xpw2/nfc';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useStore';
 import { clearSelectedMember, identifyMemberByNfcThunk } from '../store/memberSlice';
@@ -44,26 +44,18 @@ export default function MemberIdentifyScreen() {
     }
   }, [scanForMemberCard, dispatch, activeSession]);
 
-  if (!activeSession) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.header}>Member Identify</Text>
-        <View style={styles.noSession}>
-          <Text style={styles.noSessionText}>No active session.</Text>
-          <Text style={styles.noSessionHint}>Go to the Session tab to start one.</Text>
-        </View>
-      </View>
-    );
-  }
-
+  // DEV TESTING: Session guard removed — works without an active session.
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.header}>Member Identify</Text>
 
       <View style={styles.nfcStatus}>
         <Text style={styles.statusText}>
           NFC: {status.isSupported ? (status.isEnabled ? 'Ready' : 'Disabled') : 'Not Supported'}
         </Text>
+        {!activeSession && (
+          <Text style={styles.noSessionBadge}>⚠️ No session — using test-session fallback</Text>
+        )}
       </View>
 
       <TouchableOpacity
@@ -93,6 +85,20 @@ export default function MemberIdentifyScreen() {
             Tag UID: {lastResult.tagId ?? 'unknown'}
           </Text>
           <Text style={styles.notFoundHint}>Register this NFC card first.</Text>
+        </View>
+      ) : null}
+
+      {/* Raw JSON scan result log */}
+      {lastResult ? (
+        <View style={styles.jsonLogCard}>
+          <Text style={styles.jsonLogTitle}>
+            Raw NFC Scan Result {lastResult.success ? '✅' : '❌'}
+          </Text>
+          <ScrollView style={styles.jsonLogScroll} nestedScrollEnabled showsVerticalScrollIndicator>
+            <Text style={styles.jsonLogText} selectable>
+              {JSON.stringify(lastResult, null, 2)}
+            </Text>
+          </ScrollView>
         </View>
       ) : null}
 
@@ -128,15 +134,17 @@ export default function MemberIdentifyScreen() {
           ) : null}
         </View>
       ) : null}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: '#f5f5f5',
+  },
+  content: {
+    padding: 16,
   },
   header: {
     fontSize: 24,
@@ -152,6 +160,11 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 14,
     color: '#666',
+  },
+  noSessionBadge: {
+    fontSize: 12,
+    color: '#856404',
+    marginTop: 4,
   },
   scanButton: {
     backgroundColor: '#007AFF',
@@ -175,6 +188,27 @@ const styles = StyleSheet.create({
     color: 'red',
     textAlign: 'center',
     marginBottom: 12,
+  },
+  jsonLogCard: {
+    backgroundColor: '#1e1e1e',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  jsonLogTitle: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  jsonLogScroll: {
+    maxHeight: 200,
+  },
+  jsonLogText: {
+    color: '#4ec9b0',
+    fontFamily: 'monospace',
+    fontSize: 11,
+    lineHeight: 17,
   },
   memberCard: {
     backgroundColor: '#fff',
@@ -223,20 +257,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#856404',
     fontFamily: 'monospace',
-  },
-  noSession: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  noSessionText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  noSessionHint: {
-    fontSize: 14,
-    color: '#888',
   },
 });

@@ -55,18 +55,7 @@ export default function WeighScreen() {
     handleSaveWeight(lastReading.weight, 'scale', lastReading.deviceId);
   }, [lastReading, handleSaveWeight]);
 
-  if (!activeSession) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.header}>Weigh</Text>
-        <View style={styles.noSession}>
-          <Text style={styles.noSessionText}>No active session.</Text>
-          <Text style={styles.noSessionHint}>Go to the Session tab to start one.</Text>
-        </View>
-      </View>
-    );
-  }
-
+  // DEV TESTING: Session guard removed — uses 'test-session' fallback via handleSaveWeight.
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Weigh</Text>
@@ -258,20 +247,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '600',
-  },
-  noSession: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  noSessionText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  noSessionHint: {
-    fontSize: 14,
-    color: '#888',
   },
 });
