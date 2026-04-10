@@ -10,6 +10,8 @@ interface MemberState {
   error: string | null;
   isRegisterLoading: boolean;
   registerError: string | null;
+  isIdentifyLoading: boolean;
+  identifyError: string | null;
 }
 
 const initialState: MemberState = {
@@ -20,6 +22,8 @@ const initialState: MemberState = {
   error: null,
   isRegisterLoading: false,
   registerError: null,
+  isIdentifyLoading: false,
+  identifyError: null,
 };
 
 export const registerMemberThunk = createAsyncThunk(
@@ -109,6 +113,7 @@ const memberSlice = createSlice({
   reducers: {
     clearSelectedMember(state) {
       state.selectedMember = null;
+      state.identifyError = null;
     },
   },
   extraReducers: (builder) => {
@@ -134,8 +139,18 @@ const memberSlice = createSlice({
         state.isLoading = false;
         state.searchResults = action.payload;
       })
+      .addCase(identifyMemberByNfcThunk.pending, (state) => {
+        state.isIdentifyLoading = true;
+        state.identifyError = null;
+        state.selectedMember = null;
+      })
       .addCase(identifyMemberByNfcThunk.fulfilled, (state, action) => {
+        state.isIdentifyLoading = false;
         state.selectedMember = action.payload;
+      })
+      .addCase(identifyMemberByNfcThunk.rejected, (state, action) => {
+        state.isIdentifyLoading = false;
+        state.identifyError = action.error.message ?? 'Failed to identify member';
       })
       .addCase(selectMemberThunk.fulfilled, (state, action) => {
         state.selectedMember = action.payload;

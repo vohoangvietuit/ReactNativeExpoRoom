@@ -1,15 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useStore';
-import { loadTodosThunk, createTodoThunk, updateTodoThunk, deleteTodoThunk } from '../store/todoSlice';
+import {
+  loadTodosThunk,
+  createTodoThunk,
+  updateTodoThunk,
+  deleteTodoThunk,
+} from '../store/todoSlice';
+import * as DataSync from '@xpw2/datasync';
 
 export default function TodoListScreen() {
   const dispatch = useAppDispatch();
@@ -19,6 +17,16 @@ export default function TodoListScreen() {
 
   useEffect(() => {
     dispatch(loadTodosThunk());
+
+    // Auto-reload todos when sync completes
+    const syncSub = DataSync.addSyncStatusChangedListener(() => {
+      // Reload todos when the other phone sends us updates
+      dispatch(loadTodosThunk());
+    });
+
+    return () => {
+      syncSub.remove();
+    };
   }, [dispatch]);
 
   const handleCreate = useCallback(() => {
@@ -38,7 +46,7 @@ export default function TodoListScreen() {
         dispatch(loadTodosThunk());
       });
     },
-    [dispatch, activeSession]
+    [dispatch, activeSession],
   );
 
   const handleDelete = useCallback(
@@ -57,7 +65,7 @@ export default function TodoListScreen() {
         },
       ]);
     },
-    [dispatch, activeSession]
+    [dispatch, activeSession],
   );
 
   const renderItem = useCallback(
@@ -77,7 +85,7 @@ export default function TodoListScreen() {
         </TouchableOpacity>
       </View>
     ),
-    [handleToggle, handleDelete]
+    [handleToggle, handleDelete],
   );
 
   // DEV TESTING: Session guard removed — uses 'test-session' fallback when no active session.
@@ -95,7 +103,11 @@ export default function TodoListScreen() {
           returnKeyType="done"
           accessibilityLabel="New todo title"
         />
-        <TouchableOpacity style={styles.addButton} onPress={handleCreate} accessibilityLabel="Add todo">
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={handleCreate}
+          accessibilityLabel="Add todo"
+        >
           <Text style={styles.addButtonText}>+</Text>
         </TouchableOpacity>
       </View>

@@ -1,27 +1,40 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { NfcReader } from '../NfcReader';
-import type { NfcScanResult, NfcStatus } from '../types';
+import type { NfcTagIdResult, NfcStatus } from '../types';
 
 export function useNfcReader() {
   const readerRef = useRef<NfcReader>(new NfcReader());
   const [status, setStatus] = useState<NfcStatus>({ isSupported: false, isEnabled: false });
   const [isScanning, setIsScanning] = useState(false);
-  const [lastResult, setLastResult] = useState<NfcScanResult | null>(null);
+
+  const refreshStatus = useCallback(() => {
+    readerRef.current.getStatus().then(setStatus);
+  }, []);
 
   useEffect(() => {
     const reader = readerRef.current;
+    // Initial check
     reader.getStatus().then(setStatus);
+
+    // Re-check every time the app comes back to the foreground — covers the case where
+    // the user leaves the app to toggle NFC in Android Settings and returns.
+    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'active') {
+        reader.getStatus().then(setStatus);
+      }
+    });
+
     return () => {
+      subscription.remove();
       reader.cleanup();
     };
   }, []);
 
-  const scanForMemberCard = useCallback(async (): Promise<NfcScanResult> => {
+  const scanTagId = useCallback(async (): Promise<NfcTagIdResult> => {
     setIsScanning(true);
-    setLastResult(null);
     try {
-      const result = await readerRef.current.scanForMemberCard();
-      setLastResult(result);
+      const result = await readerRef.current.scanTagId();
       return result;
     } finally {
       setIsScanning(false);
@@ -45,9 +58,9 @@ export function useNfcReader() {
   return {
     status,
     isScanning,
-    lastResult,
-    scanForMemberCard,
+    scanTagId,
     readTagId,
     cancel,
+    refreshStatus,
   };
 }

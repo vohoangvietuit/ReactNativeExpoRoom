@@ -1,57 +1,78 @@
-import React, { useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  Alert,
+  Linking,
+} from 'react-native';
 import { useNfcReader } from '@xpw2/nfc';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useStore';
 import { clearSelectedMember, identifyMemberByNfcThunk } from '../store/memberSlice';
 
 export default function MemberIdentifyScreen() {
   const dispatch = useAppDispatch();
-  const { selectedMember } = useAppSelector((s) => s.member);
+  const { selectedMember, isIdentifyLoading, identifyError } = useAppSelector((s) => s.member);
   const activeSession = useAppSelector((s) => s.session.activeSession);
-  const { status, isScanning, lastResult, scanForMemberCard, cancel } = useNfcReader();
+  const { status, isScanning, scanTagId, cancel } = useNfcReader();
+  const [lastTagId, setLastTagId] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
 
-  // Log whenever selectedMember changes (identify result)
   useEffect(() => {
     if (selectedMember) {
       console.log('[IdentifyMember] Member resolved from NFC:', {
         id: selectedMember.id,
         name: selectedMember.name,
-        email: selectedMember.email,
         nfcCardId: selectedMember.nfcCardId,
-        currentWeight: selectedMember.currentWeight,
-        membershipNumber: selectedMember.membershipNumber,
       });
     }
   }, [selectedMember]);
 
   const handleScan = useCallback(async () => {
-    console.log('[IdentifyMember] Starting NFC scan...');
-    const result = await scanForMemberCard();
-    console.log('[IdentifyMember] Scan result:', JSON.stringify(result, null, 2));
-
-    if (result.success) {
-      // Prefer physical tag UID for lookup — falls back to NDEF memberId if no tagId
-      const lookupKey = result.tagId ?? result.card?.memberId;
-      console.log('[IdentifyMember] Looking up member by NFC key:', lookupKey, '(source: tagId)');
-      if (lookupKey) {
-        const sessionId = activeSession?.id ?? 'test-session';
-        dispatch(identifyMemberByNfcThunk({ nfcCardId: lookupKey, sessionId }));
-      } else {
-        console.warn('[IdentifyMember] Scan succeeded but no tag ID or memberId found in result');
-      }
-    } else {
-      console.warn('[IdentifyMember] Scan failed:', result.error);
+    if (!status.isEnabled) {
+      Alert.alert('NFC is Disabled', 'Turn on NFC in device settings to scan tags.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Settings',
+          onPress: () => Linking.sendIntent('android.settings.NFC_SETTINGS'),
+        },
+      ]);
+      return;
     }
-  }, [scanForMemberCard, dispatch, activeSession]);
 
-  // DEV TESTING: Session guard removed — works without an active session.
+    setScanError(null);
+    setLastTagId(null);
+    dispatch(clearSelectedMember());
+
+    console.log('[IdentifyMember] Starting NFC tag scan...');
+    const result = await scanTagId();
+    console.log('[IdentifyMember] Scan result:', JSON.stringify(result));
+
+    if (result.success && result.tagId) {
+      setLastTagId(result.tagId);
+      const sessionId = activeSession?.id ?? 'test-session';
+      console.log('[IdentifyMember] Looking up member by tagId:', result.tagId);
+      dispatch(identifyMemberByNfcThunk({ nfcCardId: result.tagId, sessionId }));
+    } else {
+      setScanError(result.error ?? 'Scan failed');
+    }
+  }, [scanTagId, dispatch, activeSession, status.isEnabled]);
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.header}>Member Identify</Text>
 
       <View style={styles.nfcStatus}>
         <Text style={styles.statusText}>
-          NFC: {status.isSupported ? (status.isEnabled ? 'Ready' : 'Disabled') : 'Not Supported'}
+          NFC:{' '}
+          {status.isSupported
+            ? status.isEnabled
+              ? '✅ Ready'
+              : '⚠️ Disabled'
+            : '❌ Not Supported'}
         </Text>
         {!activeSession && (
           <Text style={styles.noSessionBadge}>⚠️ No session — using test-session fallback</Text>
@@ -61,7 +82,6 @@ export default function MemberIdentifyScreen() {
       <TouchableOpacity
         style={[styles.scanButton, isScanning && styles.scanningButton]}
         onPress={isScanning ? cancel : handleScan}
-        disabled={!status.isEnabled}
         accessibilityLabel={isScanning ? 'Cancel NFC scan' : 'Scan NFC card'}
       >
         {isScanning ? (
@@ -70,35 +90,25 @@ export default function MemberIdentifyScreen() {
             <Text style={styles.scanButtonText}>Scanning... Tap to Cancel</Text>
           </>
         ) : (
-          <Text style={styles.scanButtonText}>Scan NFC Card</Text>
+          <Text style={styles.scanButtonText}>📳 Scan NFC Card</Text>
         )}
       </TouchableOpacity>
 
-      {lastResult && !lastResult.success ? (
-        <Text style={styles.error}>{lastResult.error}</Text>
-      ) : null}
+      {scanError ? <Text style={styles.error}>{scanError}</Text> : null}
+      {identifyError ? <Text style={styles.error}>{identifyError}</Text> : null}
 
-      {lastResult && lastResult.success && !selectedMember ? (
+      {isIdentifyLoading ? (
         <View style={styles.notFoundCard}>
-          <Text style={styles.notFoundText}>⚠️ Tag scanned but no matching member found.</Text>
-          <Text style={styles.notFoundHint}>
-            Tag UID: {lastResult.tagId ?? 'unknown'}
-          </Text>
-          <Text style={styles.notFoundHint}>Register this NFC card first.</Text>
+          <ActivityIndicator />
+          <Text style={styles.notFoundHint}>Looking up member…</Text>
         </View>
       ) : null}
 
-      {/* Raw JSON scan result log */}
-      {lastResult ? (
-        <View style={styles.jsonLogCard}>
-          <Text style={styles.jsonLogTitle}>
-            Raw NFC Scan Result {lastResult.success ? '✅' : '❌'}
-          </Text>
-          <ScrollView style={styles.jsonLogScroll} nestedScrollEnabled showsVerticalScrollIndicator>
-            <Text style={styles.jsonLogText} selectable>
-              {JSON.stringify(lastResult, null, 2)}
-            </Text>
-          </ScrollView>
+      {lastTagId && !isIdentifyLoading && !selectedMember ? (
+        <View style={styles.notFoundCard}>
+          <Text style={styles.notFoundText}>⚠️ No matching member found.</Text>
+          <Text style={styles.notFoundHint}>Tag UID: {lastTagId}</Text>
+          <Text style={styles.notFoundHint}>Register this NFC card first.</Text>
         </View>
       ) : null}
 
@@ -108,8 +118,8 @@ export default function MemberIdentifyScreen() {
             <Text style={styles.memberName}>{selectedMember.name}</Text>
             <TouchableOpacity
               onPress={() => {
-                console.log('[IdentifyMember] Clearing selected member');
                 dispatch(clearSelectedMember());
+                setLastTagId(null);
               }}
               accessibilityLabel="Clear member"
             >
@@ -124,10 +134,14 @@ export default function MemberIdentifyScreen() {
             <Text style={styles.memberDetail}>📱 Phone: {selectedMember.phone}</Text>
           ) : null}
           {selectedMember.membershipNumber ? (
-            <Text style={styles.memberDetail}>🏷️ Membership: {selectedMember.membershipNumber}</Text>
+            <Text style={styles.memberDetail}>
+              🏷️ Membership: {selectedMember.membershipNumber}
+            </Text>
           ) : null}
           {selectedMember.currentWeight ? (
-            <Text style={styles.memberDetail}>⚖️ Last Weight: {selectedMember.currentWeight} kg</Text>
+            <Text style={styles.memberDetail}>
+              ⚖️ Last Weight: {selectedMember.currentWeight} kg
+            </Text>
           ) : null}
           {selectedMember.nfcCardId ? (
             <Text style={styles.memberDetail}>📳 NFC UID: {selectedMember.nfcCardId}</Text>
@@ -188,27 +202,6 @@ const styles = StyleSheet.create({
     color: 'red',
     textAlign: 'center',
     marginBottom: 12,
-  },
-  jsonLogCard: {
-    backgroundColor: '#1e1e1e',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-  },
-  jsonLogTitle: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 13,
-    marginBottom: 8,
-  },
-  jsonLogScroll: {
-    maxHeight: 200,
-  },
-  jsonLogText: {
-    color: '#4ec9b0',
-    fontFamily: 'monospace',
-    fontSize: 11,
-    lineHeight: 17,
   },
   memberCard: {
     backgroundColor: '#fff',

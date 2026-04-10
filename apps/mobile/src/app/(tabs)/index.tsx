@@ -6,23 +6,35 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Alert,
+  Linking,
 } from 'react-native';
 import { useNfcReader } from '@xpw2/nfc';
 
 // DEV TESTING: Dedicated NFC scan test screen.
 // Shows raw JSON result on-screen after every scan attempt.
 export default function NfcTestTab() {
-  const { status, isScanning, scanForMemberCard, cancel } = useNfcReader();
+  const { status, isScanning, scanTagId, cancel } = useNfcReader();
   const [scanLog, setScanLog] = useState<string | null>(null);
   const [scanTime, setScanTime] = useState<string | null>(null);
 
-  const handleScan = useCallback(async () => {
+  const handleScanTagId = useCallback(async () => {
+    if (!status.isEnabled) {
+      Alert.alert('NFC is Disabled', 'Turn on NFC in device settings to scan tags.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Settings',
+          onPress: () => Linking.sendIntent('android.settings.NFC_SETTINGS'),
+        },
+      ]);
+      return;
+    }
     setScanLog(null);
-    const result = await scanForMemberCard();
+    const result = await scanTagId();
     setScanTime(new Date().toISOString());
     setScanLog(JSON.stringify(result, null, 2));
-    console.log('[NfcTest] Scan result:', JSON.stringify(result, null, 2));
-  }, [scanForMemberCard]);
+    console.log('[NfcTest] Tag ID scan:', JSON.stringify(result));
+  }, [scanTagId, status.isEnabled]);
 
   const handleClear = useCallback(() => {
     setScanLog(null);
@@ -46,9 +58,8 @@ export default function NfcTestTab() {
 
       <TouchableOpacity
         style={[styles.scanButton, isScanning && styles.scanningButton]}
-        onPress={isScanning ? cancel : handleScan}
-        disabled={!status.isEnabled && !isScanning}
-        accessibilityLabel={isScanning ? 'Cancel NFC scan' : 'Scan NFC tag'}
+        onPress={isScanning ? cancel : handleScanTagId}
+        accessibilityLabel={isScanning ? 'Cancel NFC scan' : 'Scan NFC tag ID'}
       >
         {isScanning ? (
           <View style={styles.scanningRow}>
@@ -56,7 +67,7 @@ export default function NfcTestTab() {
             <Text style={styles.scanButtonText}> Scanning... Tap to Cancel</Text>
           </View>
         ) : (
-          <Text style={styles.scanButtonText}>📳 Scan NFC Tag</Text>
+          <Text style={styles.scanButtonText}>📳 Scan Tag ID</Text>
         )}
       </TouchableOpacity>
 
@@ -69,11 +80,7 @@ export default function NfcTestTab() {
               <Text style={styles.clearButton}>✕ Clear</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView
-            style={styles.logScroll}
-            nestedScrollEnabled
-            showsVerticalScrollIndicator
-          >
+          <ScrollView style={styles.logScroll} nestedScrollEnabled showsVerticalScrollIndicator>
             <Text style={styles.logText} selectable>
               {scanLog}
             </Text>
@@ -81,7 +88,7 @@ export default function NfcTestTab() {
         </View>
       ) : (
         <View style={styles.emptyLog}>
-          <Text style={styles.emptyLogText}>Tap "Scan NFC Tag" to see raw JSON result here.</Text>
+          <Text style={styles.emptyLogText}>Tap "Scan Tag ID" to see raw result here.</Text>
         </View>
       )}
     </ScrollView>

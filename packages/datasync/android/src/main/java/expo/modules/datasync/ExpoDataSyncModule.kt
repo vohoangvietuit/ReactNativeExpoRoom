@@ -171,8 +171,16 @@ class ExpoDataSyncModule : Module() {
         // ─── Outbox ─────────────────────────────────────────────────────
 
         AsyncFunction("triggerSync") Coroutine { ->
+            val before = engine.getSyncCounts()
+            val pendingBefore = before.pendingCount
             eventOutbox.processNow()
-            "ok"
+            val after = engine.getSyncCounts()
+            val sent = pendingBefore - after.pendingCount
+            when {
+                pendingBefore == 0 -> "No pending events to sync"
+                sent > 0 -> "Sent $sent event(s) to connected device(s)"
+                else -> "Sync attempted — $pendingBefore event(s) still pending (no connected device?)"
+            }
         }
 
         AsyncFunction("triggerBackendSync") {

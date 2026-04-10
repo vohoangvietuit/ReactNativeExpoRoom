@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView } from 'react-native';
 import { useScaleWeight } from '@xpw2/ble-scale';
 import * as DataSync from '@xpw2/datasync';
 import { useAppSelector } from '../../../hooks/useStore';
@@ -11,9 +11,11 @@ export default function WeighScreen() {
     isScanning,
     isConnected,
     discoveredScales,
+    allRawDevices,
     connectedDevice,
     lastReading,
     startScan,
+    startScanAll,
     stopScan,
     connect,
     disconnect,
@@ -57,7 +59,7 @@ export default function WeighScreen() {
 
   // DEV TESTING: Session guard removed — uses 'test-session' fallback via handleSaveWeight.
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.header}>Weigh</Text>
 
       {selectedMember ? (
@@ -78,12 +80,20 @@ export default function WeighScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity
-            style={styles.button}
-            onPress={isScanning ? stopScan : () => startScan()}
-          >
-            <Text style={styles.buttonText}>{isScanning ? 'Stop Scan' : 'Scan for Scales'}</Text>
-          </TouchableOpacity>
+          <View style={styles.scanButtonRow}>
+            <TouchableOpacity
+              style={[styles.button, styles.scanButton]}
+              onPress={isScanning ? stopScan : () => startScan()}
+            >
+              <Text style={styles.buttonText}>{isScanning ? 'Stop Scan' : 'Scan Scales Only'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.scanAllButton]}
+              onPress={isScanning ? stopScan : () => startScanAll()}
+            >
+              <Text style={styles.buttonText}>{isScanning ? 'Stop' : 'Scan All BLE'}</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {discoveredScales.map((scale) => (
@@ -137,15 +147,34 @@ export default function WeighScreen() {
       </View>
 
       {saved ? <Text style={styles.savedText}>Weight saved!</Text> : null}
-    </View>
+
+      {/* DEV: Raw BLE device log — shown when startScanAll was used */}
+      {allRawDevices.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            Raw BLE Devices Found ({allRawDevices.length})
+          </Text>
+          <View style={styles.rawLogCard}>
+            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator style={styles.rawLogScroll}>
+              <Text style={styles.rawLogText} selectable>
+                {JSON.stringify(allRawDevices, null, 2)}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      ) : null}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: '#f5f5f5',
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 40,
   },
   header: {
     fontSize: 24,
@@ -247,5 +276,32 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '600',
+  },
+  scanButtonRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  scanButton: {
+    flex: 1,
+    backgroundColor: '#007AFF',
+  },
+  scanAllButton: {
+    flex: 1,
+    backgroundColor: '#8e44ad',
+  },
+  rawLogCard: {
+    backgroundColor: '#1e1e1e',
+    borderRadius: 10,
+    padding: 12,
+  },
+  rawLogScroll: {
+    maxHeight: 400,
+  },
+  rawLogText: {
+    color: '#4ec9b0',
+    fontFamily: 'monospace',
+    fontSize: 11,
+    lineHeight: 17,
   },
 });
