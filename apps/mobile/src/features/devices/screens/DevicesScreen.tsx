@@ -74,6 +74,7 @@ export default function DevicesScreen() {
   const [deviceName, setDeviceName] = useState<string>('');
   const autoReconnectRef = useRef<Set<string>>(new Set());
   const advertisingEnabledRef = useRef(false);
+  const [isReconnecting, setIsReconnecting] = useState<string | null>(null);
 
   const addLog = useCallback((msg: string) => {
     const time = new Date().toLocaleTimeString('en-US', {
@@ -122,11 +123,15 @@ export default function DevicesScreen() {
       dispatch(loadPairedDevicesThunk());
       if (event.connected) {
         dispatch(startOutboxThunk());
+        dispatch(loadConnectedDevicesThunk());
+        dispatch(loadDiscoveredDevicesThunk());
         // Stop both once connected — saves battery
         dispatch(stopDiscoveryThunk());
         dispatch(stopAdvertisingThunk());
         addLog('⚙️ Outbox started · ⏹ Advertising & Discovery stopped');
       } else {
+        dispatch(loadConnectedDevicesThunk());
+        dispatch(loadDiscoveredDevicesThunk());
         // On disconnect: auto-resume advertising if toggle was ON
         if (advertisingEnabledRef.current) {
           DataSync.getDeviceName()
@@ -167,13 +172,70 @@ export default function DevicesScreen() {
     };
   }, [dispatch, addLog]);
 
+  // ─── Connection Request: pairing handshake with verification code ─
+  useEffect(() => {
+    const requestSub = DataSync.addConnectionRequestListener(async (event) => {
+      // Check if already paired — auto-accept silently
+      const paired = pairedDevices.find(
+        (p) =>
+          (event.remoteDeviceId && p.id === event.remoteDeviceId) ||
+          p.deviceName === event.endpointName,
+      );
+
+      if (paired) {
+        await DataSync.acceptConnection(event.endpointId);
+        addLog(`🔁 Auto-accepted paired device: ${event.endpointName}`);
+        return;
+      }
+
+      if (event.isIncoming) {
+        // Phone B (responder): user must confirm the code and explicitly accept/reject
+        Alert.alert(
+          'Pairing Request',
+          `"${event.endpointName}" wants to pair.\n\nVerification code: ${event.authenticationDigits}\n\nConfirm this code matches on the other device.`,
+          [
+            {
+              text: 'Reject',
+              style: 'destructive',
+              onPress: () => {
+                DataSync.rejectConnection(event.endpointId);
+                addLog(`❌ Rejected connection from ${event.endpointName}`);
+              },
+            },
+            {
+              text: 'Accept',
+              onPress: () => {
+                DataSync.acceptConnection(event.endpointId);
+                addLog(`✅ Accepted connection from ${event.endpointName}`);
+              },
+            },
+          ],
+          { cancelable: false },
+        );
+      } else {
+        // Phone A (initiator): passive — show the code so user can read it aloud to Phone B
+        Alert.alert(
+          'Connecting…',
+          `Connecting to "${event.endpointName}"\n\nVerification code: ${event.authenticationDigits}\n\nConfirm this code appears on the other device.`,
+          [{ text: 'OK' }],
+        );
+      }
+    });
+
+    return () => {
+      requestSub.remove();
+    };
+  }, [pairedDevices, addLog]);
+
   // ─── Auto-reconnect: when paired device is discovered, connect ─
   useEffect(() => {
     if (pairedDevices.length === 0 || discoveredDevices.length === 0) return;
 
     for (const discovered of discoveredDevices) {
       const isPaired = pairedDevices.some(
-        (p) => p.deviceName === discovered.endpointName && p.isPaired,
+        (p) =>
+          (discovered.remoteDeviceId && p.id === discovered.remoteDeviceId) ||
+          (p.deviceName === discovered.endpointName && p.isPaired),
       );
       const isAlreadyConnected = connectedDevices.some(
         (c) => c.endpointId === discovered.endpointId,
@@ -360,13 +422,49 @@ export default function DevicesScreen() {
           text: 'Remove',
           style: 'destructive',
           onPress: () => {
+            // Disconnect first if connected, then remove
+            const endpoint = connectedDevices.find((c) => c.endpointName === deviceName);
+            if (endpoint) {
+              dispatch(disconnectDeviceThunk(endpoint.endpointId));
+            }
             dispatch(removePairedDeviceThunk(deviceId));
             addLog(`🗑 Removed paired device: ${deviceName}`);
           },
         },
       ]);
     },
-    [dispatch, addLog],
+    [dispatch, addLog, connectedDevices],
+  );
+
+  const handleReconnect = useCallback(
+    async (device: DataSync.DeviceRecord) => {
+      setIsReconnecting(device.id);
+      addLog(`🔁 Reconnecting to ${device.deviceName}…`);
+      const granted = await requestNearbyPermissions();
+      if (!granted) {
+        setIsReconnecting(null);
+        addLog('⚠️ Permissions denied');
+        return;
+      }
+      try {
+        const name = deviceName || (await DataSync.getDeviceName());
+        if (!deviceName) setDeviceName(name);
+        // Start advertising + discovery so we can find & be found
+        await dispatch(startAdvertisingThunk(name));
+        advertisingEnabledRef.current = true;
+        setAdvertisingEnabled(true);
+        await dispatch(startDiscoveryThunk());
+        addLog('📡🔍 Advertising + Discovery started for reconnect');
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        addLog(`❌ Reconnect error: ${msg}`);
+      } finally {
+        // Clear reconnecting state after a delay — auto-reconnect effect
+        // will handle the actual connection when the device appears
+        setTimeout(() => setIsReconnecting(null), 10000);
+      }
+    },
+    [dispatch, addLog, deviceName],
   );
 
   // ─── Render helpers ────────────────────────────────────────────
@@ -375,7 +473,12 @@ export default function DevicesScreen() {
 
   const getPairedDeviceStatus = useCallback(
     (device: DataSync.DeviceRecord) => {
-      const connected = connectedDevices.some((c) => c.endpointName === device.deviceName);
+      // Match by name or by nearbyEndpointId (endpointId is ephemeral per session)
+      const connected = connectedDevices.some(
+        (c) =>
+          c.endpointName === device.deviceName ||
+          (device.nearbyEndpointId != null && c.endpointId === device.nearbyEndpointId),
+      );
       if (connected) return 'connected';
       const discovering = discoveredDevices.some((d) => d.endpointName === device.deviceName);
       if (discovering) return 'nearby';
@@ -384,9 +487,11 @@ export default function DevicesScreen() {
     [connectedDevices, discoveredDevices],
   );
 
-  // Filter discovered devices that are NOT already paired (avoid duplicates)
+  // Filter discovered devices that are NOT already paired or connected (avoid duplicates)
+  const connectedNames = new Set(connectedDevices.map((c) => c.endpointName));
+  const pairedNames = new Set(pairedDevices.map((p) => p.deviceName));
   const unpairedDiscovered = discoveredDevices.filter(
-    (d) => !pairedDevices.some((p) => p.deviceName === d.endpointName),
+    (d) => !pairedNames.has(d.endpointName) && !connectedNames.has(d.endpointName),
   );
 
   return (
@@ -495,6 +600,7 @@ export default function DevicesScreen() {
           <Text style={styles.sectionTitle}>📱 Paired Devices</Text>
           {pairedDevices.map((device) => {
             const status = getPairedDeviceStatus(device);
+            const isThisReconnecting = isReconnecting === device.id;
             return (
               <View key={device.id} style={styles.pairedItem}>
                 <View style={styles.pairedInfo}>
@@ -516,31 +622,56 @@ export default function DevicesScreen() {
                       ? 'Connected'
                       : status === 'nearby'
                         ? 'Nearby — reconnecting…'
-                        : 'Offline'}
+                        : isThisReconnecting
+                          ? 'Searching…'
+                          : 'Disconnected'}
                   </Text>
                 </View>
-                {status === 'connected' ? (
-                  <TouchableOpacity
-                    style={styles.disconnectButton}
-                    onPress={() => {
-                      const endpoint = connectedDevices.find(
-                        (c) => c.endpointName === device.deviceName,
-                      );
-                      if (endpoint) {
-                        handleDisconnect(endpoint.endpointId, endpoint.endpointName);
-                      }
-                    }}
-                  >
-                    <Text style={styles.disconnectButtonText}>Disconnect</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => handleRemovePaired(device.id, device.deviceName)}
-                  >
-                    <Text style={styles.removeButtonText}>Remove</Text>
-                  </TouchableOpacity>
-                )}
+                <View style={styles.pairedActions}>
+                  {status === 'connected' ? (
+                    <TouchableOpacity
+                      style={styles.disconnectButton}
+                      onPress={() => {
+                        const endpoint = connectedDevices.find(
+                          (c) =>
+                            c.endpointName === device.deviceName ||
+                            (device.nearbyEndpointId != null &&
+                              c.endpointId === device.nearbyEndpointId),
+                        );
+                        if (endpoint) {
+                          handleDisconnect(endpoint.endpointId, endpoint.endpointName);
+                        }
+                      }}
+                    >
+                      <Text style={styles.disconnectButtonText}>Disconnect</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <>
+                      {status === 'offline' ? (
+                        <TouchableOpacity
+                          style={[
+                            styles.reconnectButton,
+                            isThisReconnecting && styles.reconnectButtonDisabled,
+                          ]}
+                          onPress={() => handleReconnect(device)}
+                          disabled={isThisReconnecting}
+                        >
+                          {isThisReconnecting ? (
+                            <ActivityIndicator size="small" color="#007AFF" />
+                          ) : (
+                            <Text style={styles.reconnectButtonText}>Reconnect</Text>
+                          )}
+                        </TouchableOpacity>
+                      ) : null}
+                      <TouchableOpacity
+                        style={styles.removeButton}
+                        onPress={() => handleRemovePaired(device.id, device.deviceName)}
+                      >
+                        <Text style={styles.removeButtonText}>Remove</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
               </View>
             );
           })}
@@ -848,6 +979,28 @@ const styles = StyleSheet.create({
   },
   dotOffline: {
     backgroundColor: '#ccc',
+  },
+  pairedActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reconnectButton: {
+    borderWidth: 1,
+    borderColor: '#007AFF',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  reconnectButtonDisabled: {
+    borderColor: '#ccc',
+  },
+  reconnectButtonText: {
+    color: '#007AFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   removeButton: {
     borderWidth: 1,

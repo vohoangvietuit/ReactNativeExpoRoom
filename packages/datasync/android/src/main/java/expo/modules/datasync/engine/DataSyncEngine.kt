@@ -1,6 +1,7 @@
 package expo.modules.datasync.engine
 
 import android.content.Context
+import androidx.room.withTransaction
 import expo.modules.datasync.db.AppDatabase
 import expo.modules.datasync.db.dao.SyncCountResult
 import expo.modules.datasync.db.entities.*
@@ -40,7 +41,7 @@ class DataSyncEngine(private val context: Context) {
         correlationId: String = UUID.randomUUID().toString()
     ): String = withContext(Dispatchers.IO) {
         val eventId = UUID.randomUUID().toString()
-        val idempotencyKey = "$deviceId:$eventType:${System.currentTimeMillis()}"
+        val idempotencyKey = "$deviceId:$eventId"
         val now = System.currentTimeMillis()
 
         val event = EventEntity(
@@ -61,11 +62,11 @@ class DataSyncEngine(private val context: Context) {
             createdAt = now
         )
 
-        db.eventDao().insert(event)
-        db.outboxDao().insert(outboxEntry)
-
-        // Apply side-effects based on event type
-        applyEventSideEffects(eventType, payload, event)
+        db.withTransaction {
+            db.eventDao().insert(event)
+            db.outboxDao().insert(outboxEntry)
+            applyEventSideEffects(eventType, payload, event)
+        }
 
         eventId
     }

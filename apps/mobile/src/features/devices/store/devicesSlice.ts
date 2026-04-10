@@ -141,15 +141,21 @@ const devicesSlice = createSlice({
         const name =
           state.discoveredDevices.find((d) => d.endpointId === action.payload.endpointId)
             ?.endpointName ?? action.payload.endpointId;
-        const exists = state.connectedDevices.some(
-          (d) => d.endpointId === action.payload.endpointId,
+
+        // Deduplicate connected list by both endpointId AND name
+        // (Nearby assigns new endpointId each session for same physical device)
+        state.connectedDevices = state.connectedDevices.filter(
+          (d) => d.endpointId !== action.payload.endpointId && d.endpointName !== name,
         );
-        if (!exists) {
-          state.connectedDevices.push({
-            endpointId: action.payload.endpointId,
-            endpointName: name,
-          });
-        }
+        state.connectedDevices.push({
+          endpointId: action.payload.endpointId,
+          endpointName: name,
+        });
+
+        // Remove from discovered — it's now connected, not "nearby"
+        state.discoveredDevices = state.discoveredDevices.filter(
+          (d) => d.endpointId !== action.payload.endpointId && d.endpointName !== name,
+        );
       } else {
         state.connectedDevices = state.connectedDevices.filter(
           (d) => d.endpointId !== action.payload.endpointId,
@@ -242,10 +248,27 @@ const devicesSlice = createSlice({
         state.syncInfo = action.payload;
       })
       .addCase(loadDiscoveredDevicesThunk.fulfilled, (state, action) => {
-        state.discoveredDevices = action.payload;
+        // Deduplicate by endpointName (keep first seen) and exclude already-connected
+        const connectedNames = new Set(state.connectedDevices.map((c) => c.endpointName));
+        const seen = new Set<string>();
+        state.discoveredDevices = action.payload.filter((d) => {
+          if (connectedNames.has(d.endpointName) || seen.has(d.endpointName)) return false;
+          seen.add(d.endpointName);
+          return true;
+        });
       })
       .addCase(loadConnectedDevicesThunk.fulfilled, (state, action) => {
-        state.connectedDevices = action.payload;
+        // Deduplicate connected by endpointName (keep latest = last wins)
+        const byName = new Map<string, ConnectedDevice>();
+        for (const d of action.payload) {
+          byName.set(d.endpointName, d);
+        }
+        state.connectedDevices = Array.from(byName.values());
+        // Also clean discovered of any newly-connected devices
+        const connectedNames = new Set(byName.keys());
+        state.discoveredDevices = state.discoveredDevices.filter(
+          (d) => !connectedNames.has(d.endpointName),
+        );
       })
       .addCase(triggerDeviceSyncThunk.pending, (state) => {
         state.isSyncing = true;

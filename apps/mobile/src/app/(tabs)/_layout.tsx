@@ -8,6 +8,14 @@ const buildNumber =
   Constants.expoConfig?.android?.versionCode?.toString() ??
   Constants.expoConfig?.ios?.buildNumber ??
   '—';
+const buildDate = new Date().toLocaleString('en-GB', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
 
 export default function TabLayout() {
   return (
@@ -55,7 +63,7 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
-      <Text style={styles.buildLabel}>{`v${version} (${buildNumber})`}</Text>
+      <Text style={styles.buildLabel}>{`v${version} (${buildNumber}) · ${buildDate}`}</Text>
     </View>
   );
 }
@@ -69,7 +77,7 @@ const styles = StyleSheet.create({
   },
   buildLabel: {
     position: 'absolute',
-    bottom: 4,
+    bottom: 8,
     right: 8,
     fontSize: 10,
     color: 'rgba(128, 128, 128, 0.6)',

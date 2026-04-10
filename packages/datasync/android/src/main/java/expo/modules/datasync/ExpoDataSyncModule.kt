@@ -87,25 +87,38 @@ class ExpoDataSyncModule : Module() {
             }
         }
 
+        manager.onConnectionRequest = { endpointId, endpointName, remoteDeviceId, authDigits, isIncoming ->
+            sendEvent("onConnectionRequest", mapOf(
+                "endpointId" to endpointId,
+                "endpointName" to endpointName,
+                "remoteDeviceId" to (remoteDeviceId ?: ""),
+                "authenticationDigits" to authDigits,
+                "isIncoming" to isIncoming
+            ))
+        }
+
         manager.onConnectionChanged = { endpointId, connected ->
-            // Persist device to DB on successful connection
-            if (connected) {
-                scope.launch {
-                    val name = manager.connectedEndpoints.value
-                        .find { it.endpointId == endpointId }?.endpointName ?: endpointId
-                    // First try exact endpointId match, then fall back to name match
-                    // (endpointId changes every Nearby session, so name matching is
-                    // essential for correctly updating previously-paired devices)
-                    val existing = engine.getDeviceByEndpoint(endpointId)
+            // All DB work + event emission happen in the same coroutine so that
+            // JS receives onDeviceConnectionChanged only AFTER the DB write completes.
+            // This prevents the race where loadPairedDevicesThunk() runs before upsertDevice().
+            scope.launch {
+                if (connected) {
+                    val endpoint = manager.connectedEndpoints.value
+                        .find { it.endpointId == endpointId }
+                    val name = endpoint?.endpointName ?: endpointId
+                    val remoteDeviceId = endpoint?.remoteDeviceId
+                    // Lookup order: remoteDeviceId (stable) → endpointId → name (fallback)
+                    val existing = remoteDeviceId?.let { engine.getDevice(it) }
+                        ?: engine.getDeviceByEndpoint(endpointId)
                         ?: engine.getPairedDeviceByName(name)
                     val device = existing?.copy(
-                        nearbyEndpointId = endpointId, // update in case it changed
+                        nearbyEndpointId = endpointId,
                         deviceName = name,
                         connectionStatus = "connected",
                         lastSeenAt = System.currentTimeMillis(),
                         isPaired = true
                     ) ?: expo.modules.datasync.db.entities.DeviceEntity(
-                        id = java.util.UUID.randomUUID().toString(),
+                        id = remoteDeviceId ?: java.util.UUID.randomUUID().toString(),
                         deviceName = name,
                         nearbyEndpointId = endpointId,
                         role = "combined",
@@ -114,25 +127,25 @@ class ExpoDataSyncModule : Module() {
                         isPaired = true
                     )
                     engine.upsertDevice(device)
-                }
-            } else {
-                scope.launch {
+                } else {
                     val existing = engine.getDeviceByEndpoint(endpointId)
                     if (existing != null) {
                         engine.updateDeviceStatus(existing.id, "disconnected")
                     }
                 }
+                // Fire AFTER the DB write — JS now reads fresh paired device state
+                sendEvent("onDeviceConnectionChanged", mapOf(
+                    "endpointId" to endpointId,
+                    "connected" to connected
+                ))
             }
-            sendEvent("onDeviceConnectionChanged", mapOf(
-                "endpointId" to endpointId,
-                "connected" to connected
-            ))
         }
 
         manager.onEndpointDiscovered = { endpoint ->
             sendEvent("onDeviceFound", mapOf(
                 "endpointId" to endpoint.endpointId,
                 "endpointName" to endpoint.endpointName,
+                "remoteDeviceId" to (endpoint.remoteDeviceId ?: ""),
                 "serviceId" to endpoint.serviceId
             ))
         }
@@ -152,7 +165,8 @@ class ExpoDataSyncModule : Module() {
             "onSyncStatusChanged",
             "onDeviceFound",
             "onDeviceLost",
-            "onDeviceConnectionChanged"
+            "onDeviceConnectionChanged",
+            "onConnectionRequest"
         )
 
         // ─── Event Recording ────────────────────────────────────────────
@@ -241,7 +255,8 @@ class ExpoDataSyncModule : Module() {
         // ─── Nearby Connections ─────────────────────────────────────────
 
         AsyncFunction("startAdvertising") { deviceName: String ->
-            nearbyManager.startAdvertising(deviceName)
+            val encodedName = "$deviceName|${getDeviceId()}"
+            nearbyManager.startAdvertising(encodedName)
             "ok"
         }
 
@@ -261,7 +276,18 @@ class ExpoDataSyncModule : Module() {
         }
 
         AsyncFunction("connectToDevice") { deviceName: String, endpointId: String ->
-            nearbyManager.requestConnection(deviceName, endpointId)
+            val encodedName = "$deviceName|${getDeviceId()}"
+            nearbyManager.requestConnection(encodedName, endpointId)
+            "ok"
+        }
+
+        AsyncFunction("acceptConnection") { endpointId: String ->
+            nearbyManager.acceptConnection(endpointId)
+            "ok"
+        }
+
+        AsyncFunction("rejectConnection") { endpointId: String ->
+            nearbyManager.rejectConnection(endpointId)
             "ok"
         }
 
@@ -280,6 +306,7 @@ class ExpoDataSyncModule : Module() {
                 mapOf(
                     "endpointId" to endpoint.endpointId,
                     "endpointName" to endpoint.endpointName,
+                    "remoteDeviceId" to (endpoint.remoteDeviceId ?: ""),
                     "serviceId" to endpoint.serviceId
                 )
             }
@@ -289,7 +316,8 @@ class ExpoDataSyncModule : Module() {
             nearbyManager.connectedEndpoints.value.map { endpoint ->
                 mapOf(
                     "endpointId" to endpoint.endpointId,
-                    "endpointName" to endpoint.endpointName
+                    "endpointName" to endpoint.endpointName,
+                    "remoteDeviceId" to (endpoint.remoteDeviceId ?: "")
                 )
             }
         }

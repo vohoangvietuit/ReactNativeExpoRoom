@@ -126,12 +126,14 @@ export interface DeviceSyncInfo {
 export interface DiscoveredDevice {
   endpointId: string;
   endpointName: string;
+  remoteDeviceId?: string;
   serviceId: string;
 }
 
 export interface ConnectedDevice {
   endpointId: string;
   endpointName: string;
+  remoteDeviceId?: string;
 }
 
 // ─── Event Callback Types ───────────────────────────────────────────────
@@ -151,6 +153,7 @@ export interface SyncStatusChangedPayload {
 export interface DeviceFoundPayload {
   endpointId: string;
   endpointName: string;
+  remoteDeviceId?: string;
   serviceId: string;
 }
 
@@ -161,6 +164,15 @@ export interface DeviceLostPayload {
 export interface DeviceConnectionChangedPayload {
   endpointId: string;
   connected: boolean;
+}
+
+export interface ConnectionRequestPayload {
+  endpointId: string;
+  endpointName: string;
+  remoteDeviceId?: string;
+  authenticationDigits: string;
+  /** true = responder/advertiser (show Accept/Reject), false = initiator (read-only code display) */
+  isIncoming: boolean;
 }
 
 // ─── Event Recording ────────────────────────────────────────────────────
@@ -247,6 +259,14 @@ export async function connectToDevice(deviceName: string, endpointId: string): P
 
 export async function disconnectDevice(endpointId: string): Promise<string> {
   return ExpoDataSync.disconnectDevice(endpointId);
+}
+
+export async function acceptConnection(endpointId: string): Promise<string> {
+  return ExpoDataSync.acceptConnection(endpointId);
+}
+
+export async function rejectConnection(endpointId: string): Promise<string> {
+  return ExpoDataSync.rejectConnection(endpointId);
 }
 
 export async function disconnectAll(): Promise<string> {
@@ -405,4 +425,10 @@ export function addDeviceConnectionChangedListener(
   callback: (event: DeviceConnectionChangedPayload) => void,
 ): EventSubscription {
   return emitter.addListener('onDeviceConnectionChanged', callback);
+}
+
+export function addConnectionRequestListener(
+  callback: (event: ConnectionRequestPayload) => void,
+): EventSubscription {
+  return emitter.addListener('onConnectionRequest', callback);
 }
