@@ -1,19 +1,19 @@
 # 10 — UI Components
 
-The `@xpw2/ui` package (`packages/ui/`) provides shared, theme-aware React Native components used across the app.
+The `@fitsync/ui` package (`packages/ui/`) provides shared, theme-aware React Native components used across the app.
 
 ---
 
 ## Package Usage
 
 ```typescript
-import { Button, Card, Input, Badge, ListItem, StatusIndicator, Spinner } from '@xpw2/ui';
+import { Button, Card, Input, Badge, ListItem, StatusIndicator, Spinner } from '@fitsync/ui';
 ```
 
 Declared as a workspace dependency in `apps/mobile/package.json`:
 
 ```json
-{ "@xpw2/ui": "workspace:*" }
+{ "@fitsync/ui": "workspace:*" }
 ```
 
 ---
@@ -103,7 +103,7 @@ A styled `TextInput` with label and error message support.
   label="Email"
   value={email}
   onChangeText={setEmail}
-  placeholder="consultant@xpw2.com"
+  placeholder="consultant@fitsync.com"
   error={errors.email}
   colorScheme={colorScheme}
 />

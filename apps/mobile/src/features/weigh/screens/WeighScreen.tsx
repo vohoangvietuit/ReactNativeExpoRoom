@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView } from 'react-native';
-import { useScaleWeight } from '@xpw2/ble-scale';
-import * as DataSync from '@xpw2/datasync';
+import { useScaleWeight } from '@fitsync/ble-scale';
+import * as DataSync from '@fitsync/datasync';
 import { useAppSelector } from '../../../hooks/useStore';
 
 export default function WeighScreen() {
-  const activeSession = useAppSelector((s) => s.session.activeSession);
+  // const activeSession = useAppSelector((s) => s.session.activeSession); // SESSION DISABLED
   const selectedMember = useAppSelector((s) => s.member.selectedMember);
   const {
     isScanning,
@@ -27,7 +27,7 @@ export default function WeighScreen() {
   const handleSaveWeight = useCallback(
     async (weight: number, source: 'manual' | 'scale', scaleDeviceId?: string) => {
       if (!selectedMember) return;
-      const sessionId = activeSession?.id ?? 'test-session';
+      const sessionId = 'no-session'; // SESSION DISABLED — replace with activeSession?.id when re-enabled
       await DataSync.recordEvent(
         'WeightRecorded',
         {
@@ -42,7 +42,7 @@ export default function WeighScreen() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     },
-    [selectedMember, activeSession]
+    [selectedMember],
   );
 
   const handleManualSave = useCallback(() => {
@@ -109,10 +109,10 @@ export default function WeighScreen() {
 
         {lastReading ? (
           <View style={styles.readingBox}>
-            <Text style={styles.readingWeight}>{lastReading.weight} {lastReading.unit}</Text>
-            <Text style={styles.readingStable}>
-              {lastReading.stable ? 'Stable' : 'Unstable'}
+            <Text style={styles.readingWeight}>
+              {lastReading.weight} {lastReading.unit}
             </Text>
+            <Text style={styles.readingStable}>{lastReading.stable ? 'Stable' : 'Unstable'}</Text>
             <TouchableOpacity
               style={[styles.button, styles.saveButton]}
               onPress={handleScaleSave}
@@ -151,11 +151,13 @@ export default function WeighScreen() {
       {/* DEV: Raw BLE device log — shown when startScanAll was used */}
       {allRawDevices.length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Raw BLE Devices Found ({allRawDevices.length})
-          </Text>
+          <Text style={styles.sectionTitle}>Raw BLE Devices Found ({allRawDevices.length})</Text>
           <View style={styles.rawLogCard}>
-            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator style={styles.rawLogScroll}>
+            <ScrollView
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+              style={styles.rawLogScroll}
+            >
               <Text style={styles.rawLogText} selectable>
                 {JSON.stringify(allRawDevices, null, 2)}
               </Text>

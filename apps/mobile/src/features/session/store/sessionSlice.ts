@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import * as DataSync from '@xpw2/datasync';
-import type { SessionRecord } from '@xpw2/datasync';
+import * as DataSync from '@fitsync/datasync';
+import type { SessionRecord } from '@fitsync/datasync';
 
 interface SessionState {
   activeSession: SessionRecord | null;

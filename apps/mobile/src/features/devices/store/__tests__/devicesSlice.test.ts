@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
-import * as DataSync from '@xpw2/datasync';
-import type { DeviceRecord, DeviceSyncInfo, DiscoveredDevice } from '@xpw2/datasync';
+import * as DataSync from '@fitsync/datasync';
+import type { DeviceRecord, DeviceSyncInfo, DiscoveredDevice } from '@fitsync/datasync';
 import devicesReducer, {
   addDiscoveredDevice,
   removeDiscoveredDevice,
@@ -40,13 +40,13 @@ const mockDevice2: DeviceRecord = {
 const mockDiscovered: DiscoveredDevice = {
   endpointId: 'endpoint-abc',
   endpointName: 'PayDevice-1',
-  serviceId: 'com.xpw2.datasync',
+  serviceId: 'com.fitsync.datasync',
 };
 
 const mockDiscovered2: DiscoveredDevice = {
   endpointId: 'endpoint-def',
   endpointName: 'WeighDevice-2',
-  serviceId: 'com.xpw2.datasync',
+  serviceId: 'com.fitsync.datasync',
 };
 
 const mockSyncInfo: DeviceSyncInfo = {
@@ -64,10 +64,16 @@ function makeStore(discoveredDevices: DiscoveredDevice[] = []) {
     preloadedState: {
       devices: {
         devices: [],
+        pairedDevices: [],
         discoveredDevices,
+        connectedDevices: [],
         syncInfo: null,
+        syncStatus: null,
         isScanning: false,
+        isConnecting: null,
+        isSyncing: false,
         error: null,
+        lastSyncResult: null,
       },
     },
   });
@@ -268,7 +274,7 @@ describe('devicesSlice', () => {
       const store = makeStore();
 
       await store.dispatch(
-        connectToDeviceThunk({ deviceName: 'PayDevice-1', endpointId: 'endpoint-abc' })
+        connectToDeviceThunk({ deviceName: 'PayDevice-1', endpointId: 'endpoint-abc' }),
       );
 
       expect(DataSync.connectToDevice).toHaveBeenCalledWith('PayDevice-1', 'endpoint-abc');

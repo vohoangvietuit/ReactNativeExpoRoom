@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import * as DataSync from '@xpw2/datasync';
-import type { SyncStatus } from '@xpw2/datasync';
+import * as DataSync from '@fitsync/datasync';
+import type { SyncStatus } from '@fitsync/datasync';
 
 interface SyncState {
   status: SyncStatus | null;

@@ -1,12 +1,12 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import * as DataSync from '@xpw2/datasync';
+import * as DataSync from '@fitsync/datasync';
 import type {
   DeviceRecord,
   DeviceSyncInfo,
   DiscoveredDevice,
   ConnectedDevice,
   SyncStatus,
-} from '@xpw2/datasync';
+} from '@fitsync/datasync';
 
 interface DevicesState {
   devices: DeviceRecord[];

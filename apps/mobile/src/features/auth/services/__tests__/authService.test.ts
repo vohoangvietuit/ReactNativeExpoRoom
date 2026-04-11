@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import type { AuthTokens, UserProfile } from '@xpw2/shared';
+import type { AuthTokens, UserProfile } from '@fitsync/shared';
 import {
   login,
   storeTokens,
@@ -10,7 +10,7 @@ import {
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
-const VALID_EMAIL = 'test@xpw2.com';
+const VALID_EMAIL = 'test@fitsync.com';
 const VALID_PASSWORD = 'password';
 
 const mockTokens: AuthTokens = {
@@ -21,7 +21,7 @@ const mockTokens: AuthTokens = {
 
 const expectedUser: UserProfile = {
   id: 'consultant-001',
-  email: 'consultant@xpw2.com',
+  email: 'consultant@fitsync.com',
   name: 'Test Consultant',
   role: 'consultant',
 };
@@ -50,17 +50,17 @@ describe('authService', () => {
       await login(VALID_EMAIL, VALID_PASSWORD);
 
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        'xpw2_access_token',
+        'fitsync_access_token',
         expect.any(String)
       );
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        'xpw2_refresh_token',
+        'fitsync_refresh_token',
         expect.any(String)
       );
     });
 
     it('should throw an error for invalid credentials', async () => {
-      await expect(login('wrong@xpw2.com', 'badpass')).rejects.toThrow('Invalid credentials');
+      await expect(login('wrong@fitsync.com', 'badpass')).rejects.toThrow('Invalid credentials');
     });
 
     it('should throw an error for empty email', async () => {
@@ -72,7 +72,7 @@ describe('authService', () => {
     });
 
     it('should not store tokens on failed login', async () => {
-      await expect(login('bad@xpw2.com', 'wrong')).rejects.toThrow();
+      await expect(login('bad@fitsync.com', 'wrong')).rejects.toThrow();
 
       expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
     });
@@ -116,7 +116,7 @@ describe('authService', () => {
       await storeTokens(mockTokens);
 
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        'xpw2_access_token',
+        'fitsync_access_token',
         'access-token-xyz'
       );
     });
@@ -125,7 +125,7 @@ describe('authService', () => {
       await storeTokens(mockTokens);
 
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        'xpw2_refresh_token',
+        'fitsync_refresh_token',
         'refresh-token-xyz'
       );
     });
@@ -146,7 +146,7 @@ describe('authService', () => {
 
     it('should return null when accessToken is missing', async () => {
       (SecureStore.getItemAsync as jest.Mock).mockImplementation((key: string) => {
-        if (key === 'xpw2_access_token') return Promise.resolve(null);
+        if (key === 'fitsync_access_token') return Promise.resolve(null);
         return Promise.resolve('refresh-token-xyz');
       });
 
@@ -157,7 +157,7 @@ describe('authService', () => {
 
     it('should return null when refreshToken is missing', async () => {
       (SecureStore.getItemAsync as jest.Mock).mockImplementation((key: string) => {
-        if (key === 'xpw2_refresh_token') return Promise.resolve(null);
+        if (key === 'fitsync_refresh_token') return Promise.resolve(null);
         return Promise.resolve('access-token-xyz');
       });
 
@@ -181,8 +181,8 @@ describe('authService', () => {
       await storeTokens(mockTokens);
       await clearTokens();
 
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('xpw2_access_token');
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('xpw2_refresh_token');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('fitsync_access_token');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('fitsync_refresh_token');
     });
 
     it('should result in null tokens after clearing', async () => {

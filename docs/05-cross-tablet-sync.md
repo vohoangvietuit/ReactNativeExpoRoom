@@ -1,6 +1,6 @@
 # 05 — Cross-Tablet Sync
 
-XPW2 supports real-time event synchronization between tablets in the same room using **Google Nearby Connections** (P2P WiFi/Bluetooth, no internet required).
+FitSync supports real-time event synchronization between tablets in the same room using **Google Nearby Connections** (P2P WiFi/Bluetooth, no internet required).
 
 ---
 
@@ -41,7 +41,7 @@ fun startAdvertising(deviceName: String) {
 
     Nearby.getConnectionsClient(context).startAdvertising(
         deviceName,
-        SERVICE_ID,          // "com.xpw2.datasync"
+        SERVICE_ID,          // "com.fitsync.datasync"
         connectionLifecycleCallback,
         advertisingOptions
     )

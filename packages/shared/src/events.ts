@@ -1,5 +1,5 @@
 // ─── Event Type Definitions ────────────────────────────────────────────
-// All state changes in XPW2 are recorded as immutable events.
+// All state changes in FitSync are recorded as immutable events.
 // Events are stored locally and processed by the DataSync engine.
 
 export const EVENT_TYPES = {

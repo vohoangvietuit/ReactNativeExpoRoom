@@ -1,8 +1,8 @@
 {
-  "name": "xpw2-monorepo",
+  "name": "fitsync-monorepo",
   "version": "0.0.1",
   "private": true,
-  "description": "XPW2 — Offline-first event-driven body management app",
+  "description": "FitSync — Offline-first event-driven body management app",
   "scripts": {
     "dev": "pnpm --filter mobile expo start",
     "android": "pnpm --filter mobile expo run:android",
@@ -10,7 +10,7 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "clean": "turbo run clean",
-    "storybook": "pnpm --filter @xpw2/ui storybook"
+    "storybook": "pnpm --filter @fitsync/ui storybook"
   },
   "devDependencies": {
     "turbo": "^2.5.0",

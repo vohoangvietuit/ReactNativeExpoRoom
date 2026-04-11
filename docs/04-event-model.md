@@ -1,6 +1,6 @@
 # 04 — Event Model
 
-XPW2 is an event-sourced system. Every state change is recorded as an immutable **event** before any side effects are applied. The Room database stores the full event log; domain tables are projections derived from it.
+FitSync is an event-sourced system. Every state change is recorded as an immutable **event** before any side effects are applied. The Room database stores the full event log; domain tables are projections derived from it.
 
 ---
 

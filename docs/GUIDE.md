@@ -25,7 +25,7 @@
 
 ## 1. What You Are Building
 
-**XPW2** is an offline-first, event-driven Android tablet app for body management sessions. Think of it as:
+**FitSync** is an offline-first, event-driven Android tablet app for body management sessions. Think of it as:
 
 - A **gym/event manager** that works without internet
 - Multiple **tablets sync data directly** between each other over Bluetooth/Wi-Fi Direct
@@ -263,12 +263,12 @@ graph LR
     mobile["apps/mobile\n(Expo RN App)"]
 
     subgraph packages
-        shared["@xpw2/shared\n(TS types only)"]
-        ui["@xpw2/ui\n(RN components)"]
-        datasync["@xpw2/datasync\n(Expo Native Module)"]
-        nfc["@xpw2/nfc\n(NFC hook wrapper)"]
-        ble["@xpw2/ble-scale\n(BLE hook wrapper)"]
-        tsconfig["@xpw2/tsconfig\n(shared TS configs)"]
+        shared["@fitsync/shared\n(TS types only)"]
+        ui["@fitsync/ui\n(RN components)"]
+        datasync["@fitsync/datasync\n(Expo Native Module)"]
+        nfc["@fitsync/nfc\n(NFC hook wrapper)"]
+        ble["@fitsync/ble-scale\n(BLE hook wrapper)"]
+        tsconfig["@fitsync/tsconfig\n(shared TS configs)"]
     end
 
     mobile --> shared
@@ -301,12 +301,12 @@ flowchart TD
     WS --> NM
 
     subgraph NM["node_modules/ (after pnpm install)"]
-        L1["@xpw2/shared\n→ symlink → packages/shared"]
-        L2["@xpw2/datasync\n→ symlink → packages/datasync"]
-        L3["@xpw2/ui\n→ symlink → packages/ui"]
+        L1["@fitsync/shared\n→ symlink → packages/shared"]
+        L2["@fitsync/datasync\n→ symlink → packages/datasync"]
+        L3["@fitsync/ui\n→ symlink → packages/ui"]
     end
 
-    NM -->|import '@xpw2/datasync'| TS["TypeScript resolves\npackages/datasync/src/index.ts"]
+    NM -->|import '@fitsync/datasync'| TS["TypeScript resolves\npackages/datasync/src/index.ts"]
     NM -->|Expo autolinking scans| AL["expo-module.config.json\nfound in packages/datasync"]
     AL -->|registers| KT["ExpoDataSyncModule.kt\ncompiled into APK"]
 ```
@@ -321,12 +321,12 @@ flowchart TD
 graph TD
     turbo["turbo run build"]
 
-    turbo --> B_tsconfig["build: @xpw2/tsconfig\n(no deps — runs first)"]
-    B_tsconfig --> B_shared["build: @xpw2/shared\ntsc → dist/"]
-    B_shared --> B_ui["build: @xpw2/ui\ntsc → dist/"]
-    B_shared --> B_datasync["build: @xpw2/datasync\ntsc → dist/"]
-    B_shared --> B_nfc["build: @xpw2/nfc\ntsc → dist/"]
-    B_shared --> B_ble["build: @xpw2/ble-scale\ntsc → dist/"]
+    turbo --> B_tsconfig["build: @fitsync/tsconfig\n(no deps — runs first)"]
+    B_tsconfig --> B_shared["build: @fitsync/shared\ntsc → dist/"]
+    B_shared --> B_ui["build: @fitsync/ui\ntsc → dist/"]
+    B_shared --> B_datasync["build: @fitsync/datasync\ntsc → dist/"]
+    B_shared --> B_nfc["build: @fitsync/nfc\ntsc → dist/"]
+    B_shared --> B_ble["build: @fitsync/ble-scale\ntsc → dist/"]
     B_ui --> B_mobile["build: apps/mobile\n(no TypeScript output —\nbundled by Metro)"]
     B_datasync --> B_mobile
     B_nfc --> B_mobile
@@ -706,7 +706,7 @@ graph TB
     subgraph Kotlin["Native Layer (Kotlin / JVM)"]
         Module["ExpoDataSyncModule.kt\nAsyncFunction('recordEvent') Coroutine"]
         Engine["DataSyncEngine.kt\nSSoT coordinator"]
-        DB[("AppDatabase\nRoom + SQLCipher\nxpw2.db")]
+        DB[("AppDatabase\nRoom + SQLCipher\nfitsync.db")]
         Outbox["EventOutbox\n30s loop"]
         Nearby["NearbyManager\nBluetooth/WiFi Direct"]
         Worker["BackendSyncWorker\nWorkManager 15min"]
@@ -797,7 +797,7 @@ sequenceDiagram
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  FILE                                     ROLE                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  apps/mobile/package.json                 Declares "@xpw2/datasync"         │
+│  apps/mobile/package.json                 Declares "@fitsync/datasync"         │
 │  packages/datasync/expo-module.config.json  Registers Kotlin class to Expo  │
 │  apps/mobile/plugins/withKspPlugin.js     Patches build.gradle (KSP, arm64) │
 │  packages/datasync/android/.../           Kotlin module entry point         │
@@ -816,15 +816,15 @@ In `apps/mobile/package.json`, the datasync package is declared as a **workspace
 // apps/mobile/package.json
 {
   "dependencies": {
-    "@xpw2/datasync": "workspace:*"
+    "@fitsync/datasync": "workspace:*"
   }
 }
 ```
 
-The `workspace:*` protocol tells pnpm to symlink the local `packages/datasync` folder directly into `node_modules/@xpw2/datasync`. No npm registry involved. After `pnpm install`, the symlink exists:
+The `workspace:*` protocol tells pnpm to symlink the local `packages/datasync` folder directly into `node_modules/@fitsync/datasync`. No npm registry involved. After `pnpm install`, the symlink exists:
 
 ```
-apps/mobile/node_modules/@xpw2/datasync
+apps/mobile/node_modules/@fitsync/datasync
   → ../../packages/datasync   (symlink)
 ```
 
@@ -1061,7 +1061,7 @@ export function addEventRecordedListener(
 Now any feature in `apps/mobile` can do:
 
 ```typescript
-import * as DataSync from '@xpw2/datasync';
+import * as DataSync from '@fitsync/datasync';
 
 const todos = await DataSync.getAllTodos();  // calls Kotlin, returns JS array
 ```
@@ -1174,7 +1174,7 @@ abstract class AppDatabase : RoomDatabase() {
             // KeystoreHelper generates a random AES key stored in Android Keystore
             val passphrase = KeystoreHelper.getOrCreatePassphrase(context)
             val factory = SupportFactory(passphrase)  // ← SQLCipher factory
-            return Room.databaseBuilder(context, AppDatabase::class.java, "xpw2.db")
+            return Room.databaseBuilder(context, AppDatabase::class.java, "fitsync.db")
                 .openHelperFactory(factory)
                 .build()
         }
@@ -1314,7 +1314,7 @@ npx expo prebuild --platform android
 │   └─ withKspPlugin.js → injects KSP classpath into android/build.gradle
 │
 ├─ Scans node_modules/**/expo-module.config.json
-│   └─ finds @xpw2/datasync → "modules": ["expo.modules.datasync.ExpoDataSyncModule"]
+│   └─ finds @fitsync/datasync → "modules": ["expo.modules.datasync.ExpoDataSyncModule"]
 │
 ├─ Generates android/app/src/.../ExpoModulesPackageList.java
 │   └─ registers ExpoDataSyncModule in the app's module registry
@@ -1517,7 +1517,7 @@ npx expo prebuild --platform android
 # Build and install the APK
 cd apps/mobile/android && ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.xpw2.mobile/.MainActivity
+adb shell am start -n com.fitsync.mobile/.MainActivity
 
 # ── Dependency management ────────────────────────────────────────
 
@@ -1525,7 +1525,7 @@ adb shell am start -n com.xpw2.mobile/.MainActivity
 pnpm --filter mobile add some-library
 
 # Add a dev dependency to a package
-pnpm --filter @xpw2/shared add -D typescript
+pnpm --filter @fitsync/shared add -D typescript
 
 # ── Monorepo build ───────────────────────────────────────────────
 
@@ -1607,7 +1607,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import todoReducer, { createTodoThunk, loadTodosThunk } from '../todoSlice';
 
 // The DataSync module is auto-mocked via jest.setup.js
-jest.mock('@xpw2/datasync', () => ({
+jest.mock('@fitsync/datasync', () => ({
   DataSync: {
     getAllTodos: jest.fn().mockResolvedValue([]),
     recordEvent: jest.fn().mockResolvedValue({ eventId: 'evt-1' }),
@@ -1841,7 +1841,7 @@ adb logcat -s ExpoDataSync:D
 # Press 'j' in the Metro terminal
 
 # Check if your module is loaded
-adb shell am start -a android.intent.action.MAIN -n com.xpw2.mobile/.MainActivity
+adb shell am start -a android.intent.action.MAIN -n com.fitsync.mobile/.MainActivity
 
 # Hard reset Metro bundler (clears all caches)
 npx expo start --clear
@@ -1869,7 +1869,7 @@ When editing Kotlin code (`packages/datasync/android/`), the loop is:
 1. Edit .kt file
 2. cd apps/mobile/android && ./gradlew assembleDebug
 3. adb install -r app/build/outputs/apk/debug/app-debug.apk
-4. adb shell am start -n com.xpw2.mobile/.MainActivity
+4. adb shell am start -n com.fitsync.mobile/.MainActivity
 5. Check logcat for errors
 6. Repeat
 ```

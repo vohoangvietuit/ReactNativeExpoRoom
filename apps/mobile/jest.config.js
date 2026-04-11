@@ -18,7 +18,7 @@ module.exports = {
       '|immer' +
       '|react-redux' +
       '|@reduxjs/toolkit' +
-      '|@xpw2/.*' +
+      '|@fitsync/.*' +
       '))',
   ],
   moduleNameMapper: {

@@ -2,8 +2,8 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
-import * as DataSync from '@xpw2/datasync';
-import { useNfcReader } from '@xpw2/nfc';
+import * as DataSync from '@fitsync/datasync';
+import { useNfcReader } from '@fitsync/nfc';
 import RegisterMemberScreen from '../RegisterMemberScreen';
 import memberReducer from '../../store/memberSlice';
 import sessionReducer from '../../../session/store/sessionSlice';
@@ -27,7 +27,7 @@ function renderWithStore(overrides: Record<string, unknown> = {}) {
     ...render(
       <Provider store={store}>
         <RegisterMemberScreen />
-      </Provider>
+      </Provider>,
     ),
   };
 }
@@ -61,15 +61,27 @@ describe('RegisterMemberScreen', () => {
       expect(screen.getByLabelText('Scan NFC card to link')).toBeTruthy();
     });
 
-    it('should show warning when no active session', () => {
+    // SESSION DISABLED — warning banner is hidden
+    it('should not show no-session warning (session disabled)', () => {
       renderWithStore();
-      expect(screen.getByText(/No active session/)).toBeTruthy();
+      expect(screen.queryByText(/No active session/)).toBeNull();
     });
 
     it('should not show warning when active session exists', () => {
       renderWithStore({
         session: {
-          activeSession: { id: 'session-001', groupId: 'g1', consultantId: 'c1', status: 'active', startedAt: 1700000000000, endedAt: null, memberCount: 0, eventCount: 0, createdAt: 1700000000000, updatedAt: 1700000000000 },
+          activeSession: {
+            id: 'session-001',
+            groupId: 'g1',
+            consultantId: 'c1',
+            status: 'active',
+            startedAt: 1700000000000,
+            endedAt: null,
+            memberCount: 0,
+            eventCount: 0,
+            createdAt: 1700000000000,
+            updatedAt: 1700000000000,
+          },
           sessions: [],
           isLoading: false,
           error: null,
@@ -105,7 +117,7 @@ describe('RegisterMemberScreen', () => {
             name: 'Jane Smith',
             email: 'jane@test.com',
           }),
-          'local-registration'
+          'no-session',
         );
       });
     });
@@ -122,11 +134,23 @@ describe('RegisterMemberScreen', () => {
       });
     });
 
-    it('should use active session id when available', async () => {
+    // SESSION DISABLED — sessionId is always 'no-session' regardless of store state
+    it('should use no-session id when session is disabled', async () => {
       (DataSync.recordEvent as jest.Mock).mockResolvedValue('evt-reg-003');
       renderWithStore({
         session: {
-          activeSession: { id: 'session-active', groupId: 'g', consultantId: 'c', status: 'active', startedAt: 1700000000000, endedAt: null, memberCount: 0, eventCount: 0, createdAt: 1700000000000, updatedAt: 1700000000000 },
+          activeSession: {
+            id: 'session-active',
+            groupId: 'g',
+            consultantId: 'c',
+            status: 'active',
+            startedAt: 1700000000000,
+            endedAt: null,
+            memberCount: 0,
+            eventCount: 0,
+            createdAt: 1700000000000,
+            updatedAt: 1700000000000,
+          },
           sessions: [],
           isLoading: false,
           error: null,
@@ -140,7 +164,7 @@ describe('RegisterMemberScreen', () => {
         expect(DataSync.recordEvent).toHaveBeenCalledWith(
           'MemberRegistered',
           expect.objectContaining({ name: 'John Doe' }),
-          'session-active'
+          'no-session',
         );
       });
     });
@@ -234,7 +258,7 @@ describe('RegisterMemberScreen', () => {
             name: 'NFC Member',
             nfcCardId: 'NFC-LINKED',
           }),
-          'local-registration'
+          'no-session',
         );
       });
     });

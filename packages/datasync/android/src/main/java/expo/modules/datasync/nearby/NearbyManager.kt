@@ -20,7 +20,7 @@ class NearbyManager(private val context: Context) {
 
     companion object {
         private const val TAG = "NearbyManager"
-        const val SERVICE_ID = "com.xpw2.datasync"
+        const val SERVICE_ID = "com.fitsync.datasync"
         private const val MAX_PAYLOAD_BYTES = 32 * 1024 // 32KB
     }
 

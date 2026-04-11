@@ -23,7 +23,7 @@ class BackendSyncWorker(
 
     companion object {
         const val TAG = "BackendSyncWorker"
-        const val WORK_NAME = "xpw2_backend_sync"
+        const val WORK_NAME = "fitsync_backend_sync"
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {

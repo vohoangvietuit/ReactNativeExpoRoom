@@ -6,7 +6,7 @@ Two hardware integrations enable fast member identification (NFC) and automated 
 
 ## NFC — Member Card Reader
 
-**Package:** `@xpw2/nfc` (`packages/nfc/`)  
+**Package:** `@fitsync/nfc` (`packages/nfc/`)  
 **Library:** `react-native-nfc-manager@3.15.0`
 
 ### Architecture
@@ -35,7 +35,7 @@ DataSync.recordEvent('MemberIdentified', { memberId, method: 'nfc', nfcCardId: t
 ### Initialization
 
 ```typescript
-import { NfcReader } from '@xpw2/nfc';
+import { NfcReader } from '@fitsync/nfc';
 
 const nfc = new NfcReader();
 
@@ -106,7 +106,7 @@ const { status, isScanning, scanTagId, readTagId, cancel, refreshStatus } = useN
 
 ## BLE Scales
 
-**Package:** `@xpw2/ble-scale` (`packages/ble-scale/`)  
+**Package:** `@fitsync/ble-scale` (`packages/ble-scale/`)  
 **Library:** `react-native-ble-plx@3.2.1`
 
 ### Architecture

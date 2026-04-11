@@ -2,9 +2,9 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
-import * as DataSync from '@xpw2/datasync';
-import type { MemberRecord, SessionRecord } from '@xpw2/datasync';
-import { useNfcReader } from '@xpw2/nfc';
+import * as DataSync from '@fitsync/datasync';
+import type { MemberRecord, SessionRecord } from '@fitsync/datasync';
+import { useNfcReader } from '@fitsync/nfc';
 import MemberIdentifyScreen from '../MemberIdentifyScreen';
 import memberReducer from '../../store/memberSlice';
 import sessionReducer from '../../../session/store/sessionSlice';
@@ -60,7 +60,7 @@ function renderWithStore(overrides: Record<string, unknown> = {}) {
     ...render(
       <Provider store={store}>
         <MemberIdentifyScreen />
-      </Provider>
+      </Provider>,
     ),
   };
 }
@@ -85,23 +85,18 @@ describe('MemberIdentifyScreen', () => {
       isScanning: false,
       lastResult: null,
       scanForMemberCard: jest.fn().mockResolvedValue({ success: false, error: 'No tag' }),
+      scanTagId: jest.fn().mockResolvedValue({ success: false, error: 'No tag' }),
       readTagId: jest.fn().mockResolvedValue(null),
       cancel: jest.fn(),
     });
   });
 
-  // ── No active session ────────────────────────────────────────────────────
+  // ── No active session (SESSION DISABLED — screen always renders) ─────────────
 
   describe('no active session', () => {
-    it('should show no-session message', () => {
+    it('should render scan button even without an active session', () => {
       renderWithStore();
-      expect(screen.getByText('No active session.')).toBeTruthy();
-      expect(screen.getByText('Go to the Session tab to start one.')).toBeTruthy();
-    });
-
-    it('should not render scan button', () => {
-      renderWithStore();
-      expect(screen.queryByLabelText('Scan NFC card')).toBeNull();
+      expect(screen.getByLabelText('Scan NFC card')).toBeTruthy();
     });
   });
 
@@ -124,6 +119,7 @@ describe('MemberIdentifyScreen', () => {
         isScanning: false,
         lastResult: null,
         scanForMemberCard: jest.fn(),
+        scanTagId: jest.fn(),
         readTagId: jest.fn(),
         cancel: jest.fn(),
       });
@@ -138,6 +134,7 @@ describe('MemberIdentifyScreen', () => {
         isScanning: false,
         lastResult: null,
         scanForMemberCard: jest.fn(),
+        scanTagId: jest.fn(),
         readTagId: jest.fn(),
         cancel: jest.fn(),
       });
@@ -150,13 +147,13 @@ describe('MemberIdentifyScreen', () => {
   // ── NFC scanning ─────────────────────────────────────────────────────────
 
   describe('NFC scanning', () => {
-    it('should call scanForMemberCard on button press', () => {
+    it('should call scanTagId on button press', () => {
       const mockScan = jest.fn().mockResolvedValue({ success: false, error: 'No tag' });
       (useNfcReader as jest.Mock).mockReturnValue({
         status: { isSupported: true, isEnabled: true },
         isScanning: false,
         lastResult: null,
-        scanForMemberCard: mockScan,
+        scanTagId: mockScan,
         readTagId: jest.fn(),
         cancel: jest.fn(),
       });
@@ -173,6 +170,7 @@ describe('MemberIdentifyScreen', () => {
         isScanning: true,
         lastResult: null,
         scanForMemberCard: jest.fn(),
+        scanTagId: jest.fn(),
         readTagId: jest.fn(),
         cancel: jest.fn(),
       });
@@ -186,13 +184,12 @@ describe('MemberIdentifyScreen', () => {
       const mockScan = jest.fn().mockResolvedValue({
         success: true,
         tagId: 'NFC-ABC123',
-        card: { memberId: 'member-001', name: 'Jane' },
       });
       (useNfcReader as jest.Mock).mockReturnValue({
         status: { isSupported: true, isEnabled: true },
         isScanning: false,
         lastResult: null,
-        scanForMemberCard: mockScan,
+        scanTagId: mockScan,
         readTagId: jest.fn(),
         cancel: jest.fn(),
       });
@@ -211,13 +208,12 @@ describe('MemberIdentifyScreen', () => {
       const mockScan = jest.fn().mockResolvedValue({
         success: true,
         tagId: 'PHYSICAL-UID',
-        card: { memberId: 'ndef-id', name: 'Jane' },
       });
       (useNfcReader as jest.Mock).mockReturnValue({
         status: { isSupported: true, isEnabled: true },
         isScanning: false,
         lastResult: null,
-        scanForMemberCard: mockScan,
+        scanTagId: mockScan,
         readTagId: jest.fn(),
         cancel: jest.fn(),
       });
@@ -239,13 +235,12 @@ describe('MemberIdentifyScreen', () => {
       const mockScan = jest.fn().mockResolvedValue({
         success: true,
         tagId: 'NFC-ABC123',
-        card: { memberId: 'member-001', name: 'Jane' },
       });
       (useNfcReader as jest.Mock).mockReturnValue({
         status: { isSupported: true, isEnabled: true },
         isScanning: false,
         lastResult: null,
-        scanForMemberCard: mockScan,
+        scanTagId: mockScan,
         readTagId: jest.fn(),
         cancel: jest.fn(),
       });
@@ -269,13 +264,12 @@ describe('MemberIdentifyScreen', () => {
       const mockScan = jest.fn().mockResolvedValue({
         success: true,
         tagId: 'NFC-ABC123',
-        card: { memberId: 'member-001', name: 'Jane' },
       });
       (useNfcReader as jest.Mock).mockReturnValue({
         status: { isSupported: true, isEnabled: true },
         isScanning: false,
         lastResult: null,
-        scanForMemberCard: mockScan,
+        scanTagId: mockScan,
         readTagId: jest.fn(),
         cancel: jest.fn(),
       });
@@ -304,21 +298,23 @@ describe('MemberIdentifyScreen', () => {
       const mockScan = jest.fn().mockResolvedValue({
         success: true,
         tagId: 'UNKNOWN-TAG',
-        card: null,
       });
       (useNfcReader as jest.Mock).mockReturnValue({
         status: { isSupported: true, isEnabled: true },
         isScanning: false,
-        lastResult: { success: true, tagId: 'UNKNOWN-TAG', card: null },
-        scanForMemberCard: mockScan,
+        lastResult: null,
+        scanTagId: mockScan,
         readTagId: jest.fn(),
         cancel: jest.fn(),
       });
       (DataSync.getMemberByNfc as jest.Mock).mockResolvedValue(null);
 
       renderWithStore(withActiveSession);
+      fireEvent.press(screen.getByLabelText('Scan NFC card'));
 
-      expect(screen.getByText(/no matching member found/)).toBeTruthy();
+      await waitFor(() => {
+        expect(screen.getByText(/No matching member found/)).toBeTruthy();
+      });
       expect(screen.getByText(/UNKNOWN-TAG/)).toBeTruthy();
     });
   });

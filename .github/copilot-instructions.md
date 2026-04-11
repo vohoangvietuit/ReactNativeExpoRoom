@@ -1,6 +1,6 @@
 # GitHub Copilot Instructions
 
-**XPW2** — Offline-first event-driven body management Android app  
+**FitSync** — Offline-first event-driven body management Android app  
 **Expo** · **TypeScript** · **Redux Toolkit** · **React Navigation** · **React Native Testing Library**
 
 ---

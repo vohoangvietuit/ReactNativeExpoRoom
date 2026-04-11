@@ -42,7 +42,7 @@ module.exports = {
   transformIgnorePatterns: [
     'node_modules/(?!(' +
       '(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*' +
-      '|@react-navigation/.*|immer|@xpw2/.*' +
+      '|@react-navigation/.*|immer|@fitsync/.*' +
       '))',
   ],
   moduleNameMapper: {
@@ -67,7 +67,7 @@ import '@testing-library/jest-native/extend-expect';
 The DataSync module calls native Kotlin code, which is unavailable in the Jest environment. Mock it at the module boundary:
 
 ```typescript
-// __mocks__/@xpw2/datasync.ts  (or jest.mock() in test file)
+// __mocks__/@fitsync/datasync.ts  (or jest.mock() in test file)
 export const recordEvent = jest.fn().mockResolvedValue('mock-event-id');
 export const recordEventWithCorrelation = jest.fn().mockResolvedValue('mock-event-id');
 
@@ -94,13 +94,13 @@ export const addConnectionRequestListener = jest.fn().mockReturnValue({ remove: 
 
 ```typescript
 // In your test file:
-jest.mock('@xpw2/datasync');
+jest.mock('@fitsync/datasync');
 ```
 
 ### NFC Module
 
 ```typescript
-jest.mock('@xpw2/nfc', () => ({
+jest.mock('@fitsync/nfc', () => ({
   NfcReader: jest.fn().mockImplementation(() => ({
     init: jest.fn().mockResolvedValue(true),
     getStatus: jest.fn().mockResolvedValue({ isSupported: true, isEnabled: true }),
@@ -121,7 +121,7 @@ jest.mock('@xpw2/nfc', () => ({
 ### BLE Scale Module
 
 ```typescript
-jest.mock('@xpw2/ble-scale', () => ({
+jest.mock('@fitsync/ble-scale', () => ({
   useScaleWeight: jest.fn().mockReturnValue({
     reading: null,
     status: 'idle',
@@ -170,7 +170,7 @@ describe('authSlice', () => {
     mockedGetProfile.mockResolvedValue(mockUser);
 
     const store = makeStore();
-    await store.dispatch(loginThunk({ email: 'test@xpw2.com', password: 'password' }));
+    await store.dispatch(loginThunk({ email: 'test@fitsync.com', password: 'password' }));
 
     expect(store.getState().auth.isAuthenticated).toBe(true);
     expect(store.getState().auth.user).toEqual(mockUser);
@@ -216,8 +216,8 @@ const mockDelete = SecureStore.deleteItemAsync as jest.Mock;
 describe('authService', () => {
   it('storeTokens — writes both tokens to secure store', async () => {
     await storeTokens({ accessToken: 'acc', refreshToken: 'ref', expiresAt: '' });
-    expect(mockSet).toHaveBeenCalledWith('xpw2_access_token', 'acc');
-    expect(mockSet).toHaveBeenCalledWith('xpw2_refresh_token', 'ref');
+    expect(mockSet).toHaveBeenCalledWith('fitsync_access_token', 'acc');
+    expect(mockSet).toHaveBeenCalledWith('fitsync_refresh_token', 'ref');
   });
 
   it('getStoredTokens — returns null when nothing stored', async () => {
@@ -228,8 +228,8 @@ describe('authService', () => {
 
   it('clearTokens — deletes both keys', async () => {
     await clearTokens();
-    expect(mockDelete).toHaveBeenCalledWith('xpw2_access_token');
-    expect(mockDelete).toHaveBeenCalledWith('xpw2_refresh_token');
+    expect(mockDelete).toHaveBeenCalledWith('fitsync_access_token');
+    expect(mockDelete).toHaveBeenCalledWith('fitsync_refresh_token');
   });
 });
 ```
@@ -241,9 +241,9 @@ describe('authService', () => {
 ```typescript
 // useNfcReader.test.ts
 import { renderHook, act } from '@testing-library/react-native';
-import { useNfcReader } from '@xpw2/nfc';
+import { useNfcReader } from '@fitsync/nfc';
 
-jest.mock('@xpw2/nfc');
+jest.mock('@fitsync/nfc');
 
 it('starts in idle status', () => {
   const { result } = renderHook(() => useNfcReader());

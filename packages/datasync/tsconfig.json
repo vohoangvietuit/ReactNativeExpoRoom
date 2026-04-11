@@ -1,5 +1,5 @@
 {
-  "extends": "@xpw2/tsconfig/react-native.json",
+  "extends": "@fitsync/tsconfig/react-native.json",
   "compilerOptions": {
     "outDir": "build",
     "rootDir": "src"

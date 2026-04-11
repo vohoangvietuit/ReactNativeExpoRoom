@@ -9,13 +9,13 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useNfcReader } from '@xpw2/nfc';
+import { useNfcReader } from '@fitsync/nfc';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useStore';
 import { registerMemberThunk } from '../store/memberSlice';
 
 export default function RegisterMemberScreen() {
   const dispatch = useAppDispatch();
-  const activeSession = useAppSelector((s) => s.session.activeSession);
+  // const activeSession = useAppSelector((s) => s.session.activeSession); // SESSION DISABLED
   const { isRegisterLoading, registerError } = useAppSelector((s) => s.member);
   const { status, isScanning, readTagId, cancel } = useNfcReader();
 
@@ -44,7 +44,7 @@ export default function RegisterMemberScreen() {
       Alert.alert('Validation', 'Name is required.');
       return;
     }
-    const sessionId = activeSession?.id ?? 'local-registration';
+    const sessionId = 'no-session'; // SESSION DISABLED — replace with activeSession?.id when re-enabled
     console.log('[RegisterMember] Submitting registration form:', {
       name: name.trim(),
       email: email.trim() || '(none)',
@@ -61,7 +61,7 @@ export default function RegisterMemberScreen() {
         membershipNumber: membershipNumber.trim() || undefined,
         nfcCardId: scannedTagId ?? undefined,
         sessionId,
-      })
+      }),
     );
     if (registerMemberThunk.fulfilled.match(result)) {
       console.log('[RegisterMember] Registration fulfilled:', result.payload);
@@ -69,7 +69,7 @@ export default function RegisterMemberScreen() {
     } else {
       console.error('[RegisterMember] Registration rejected:', result.error);
     }
-  }, [name, email, phone, membershipNumber, scannedTagId, activeSession, dispatch]);
+  }, [name, email, phone, membershipNumber, scannedTagId, dispatch]);
 
   const handleReset = useCallback(() => {
     console.log('[RegisterMember] Form reset for new registration');
@@ -107,13 +107,14 @@ export default function RegisterMemberScreen() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      {!activeSession && (
+      {/* SESSION DISABLED — no-session warning banner hidden */}
+      {/* {!activeSession && (
         <View style={styles.warningBox}>
           <Text style={styles.warningText}>
             ⚠️ No active session — start a session first for proper event tracking.
           </Text>
         </View>
-      )}
+      )} */}
 
       {/* ── Personal details ── */}
       <View style={styles.card}>
@@ -211,9 +212,7 @@ export default function RegisterMemberScreen() {
         )}
       </View>
 
-      {registerError ? (
-        <Text style={styles.errorText}>⚠️ {registerError}</Text>
-      ) : null}
+      {registerError ? <Text style={styles.errorText}>⚠️ {registerError}</Text> : null}
 
       <TouchableOpacity
         style={[styles.primaryButton, isRegisterLoading && styles.primaryButtonDisabled]}

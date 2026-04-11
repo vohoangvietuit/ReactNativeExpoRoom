@@ -7,12 +7,12 @@ import {
   updateTodoThunk,
   deleteTodoThunk,
 } from '../store/todoSlice';
-import * as DataSync from '@xpw2/datasync';
+import * as DataSync from '@fitsync/datasync';
 
 export default function TodoListScreen() {
   const dispatch = useAppDispatch();
   const { todos, isLoading } = useAppSelector((s) => s.todo);
-  const activeSession = useAppSelector((s) => s.session.activeSession);
+  // const activeSession = useAppSelector((s) => s.session.activeSession); // SESSION DISABLED
   const [newTitle, setNewTitle] = useState('');
 
   useEffect(() => {
@@ -32,21 +32,21 @@ export default function TodoListScreen() {
   const handleCreate = useCallback(() => {
     const title = newTitle.trim();
     if (!title) return;
-    const sessionId = activeSession?.id ?? 'test-session';
+    const sessionId = 'no-session'; // SESSION DISABLED — replace with activeSession?.id when re-enabled
     dispatch(createTodoThunk({ title, sessionId })).then(() => {
       dispatch(loadTodosThunk());
     });
     setNewTitle('');
-  }, [dispatch, newTitle, activeSession]);
+  }, [dispatch, newTitle]);
 
   const handleToggle = useCallback(
     (todoId: string, completed: boolean) => {
-      const sessionId = activeSession?.id ?? 'test-session';
+      const sessionId = 'no-session'; // SESSION DISABLED
       dispatch(updateTodoThunk({ todoId, completed: !completed, sessionId })).then(() => {
         dispatch(loadTodosThunk());
       });
     },
-    [dispatch, activeSession],
+    [dispatch],
   );
 
   const handleDelete = useCallback(
@@ -57,7 +57,7 @@ export default function TodoListScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            const sessionId = activeSession?.id ?? 'test-session';
+            const sessionId = 'no-session'; // SESSION DISABLED
             dispatch(deleteTodoThunk({ todoId, sessionId })).then(() => {
               dispatch(loadTodosThunk());
             });
@@ -65,7 +65,7 @@ export default function TodoListScreen() {
         },
       ]);
     },
-    [dispatch, activeSession],
+    [dispatch],
   );
 
   const renderItem = useCallback(

@@ -9,14 +9,14 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { useNfcReader } from '@xpw2/nfc';
+import { useNfcReader } from '@fitsync/nfc';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useStore';
 import { clearSelectedMember, identifyMemberByNfcThunk } from '../store/memberSlice';
 
 export default function MemberIdentifyScreen() {
   const dispatch = useAppDispatch();
   const { selectedMember, isIdentifyLoading, identifyError } = useAppSelector((s) => s.member);
-  const activeSession = useAppSelector((s) => s.session.activeSession);
+  // const activeSession = useAppSelector((s) => s.session.activeSession); // SESSION DISABLED
   const { status, isScanning, scanTagId, cancel } = useNfcReader();
   const [lastTagId, setLastTagId] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -53,13 +53,26 @@ export default function MemberIdentifyScreen() {
 
     if (result.success && result.tagId) {
       setLastTagId(result.tagId);
-      const sessionId = activeSession?.id ?? 'test-session';
+      const sessionId = 'no-session'; // SESSION DISABLED — replace with activeSession?.id when re-enabled
       console.log('[IdentifyMember] Looking up member by tagId:', result.tagId);
       dispatch(identifyMemberByNfcThunk({ nfcCardId: result.tagId, sessionId }));
     } else {
       setScanError(result.error ?? 'Scan failed');
     }
-  }, [scanTagId, dispatch, activeSession, status.isEnabled]);
+  }, [scanTagId, dispatch, status.isEnabled]);
+
+  // SESSION DISABLED — early return guard removed; screen always renders
+  // if (!activeSession) {
+  //   return (
+  //     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+  //       <Text style={styles.header}>Member Identify</Text>
+  //       <View style={styles.notFoundCard}>
+  //         <Text style={styles.notFoundText}>No active session.</Text>
+  //         <Text style={styles.notFoundHint}>Go to the Session tab to start one.</Text>
+  //       </View>
+  //     </ScrollView>
+  //   );
+  // }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -74,9 +87,6 @@ export default function MemberIdentifyScreen() {
               : '⚠️ Disabled'
             : '❌ Not Supported'}
         </Text>
-        {!activeSession && (
-          <Text style={styles.noSessionBadge}>⚠️ No session — using test-session fallback</Text>
-        )}
       </View>
 
       <TouchableOpacity

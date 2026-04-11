@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "XPW2",
-    "slug": "xpw2",
+    "name": "FitSync",
+    "slug": "fitsync",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "xpw2",
+    "scheme": "fitsync",
     "userInterfaceStyle": "automatic",
     "android": {
-      "package": "com.xpw2.mobile",
+      "package": "com.fitsync.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -58,7 +58,7 @@
       "reactCompiler": true
     },
     "ios": {
-      "bundleIdentifier": "com.xpw2.mobile"
+      "bundleIdentifier": "com.fitsync.mobile"
     }
   }
 }

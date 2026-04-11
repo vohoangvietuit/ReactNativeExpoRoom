@@ -35,7 +35,7 @@ import {
   removeDiscoveredDevice,
   clearError,
 } from '../store/devicesSlice';
-import * as DataSync from '@xpw2/datasync';
+import * as DataSync from '@fitsync/datasync';
 
 const NEARBY_PERMISSIONS = [
   PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
@@ -800,7 +800,7 @@ export default function DevicesScreen() {
               ? 'Searching for nearby devices…'
               : hasConnections
                 ? 'Connected — search paused.'
-                : 'Tap "Search for Devices" to find nearby XPW2 tablets.'}
+                : 'Tap "Search for Devices" to find nearby FitSync tablets.'}
           </Text>
         }
         ListFooterComponent={

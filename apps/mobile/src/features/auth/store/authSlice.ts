@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { AuthTokens, UserProfile } from '@xpw2/shared';
+import type { AuthTokens, UserProfile } from '@fitsync/shared';
 import * as authService from '../services/authService';
 
 interface AuthState {

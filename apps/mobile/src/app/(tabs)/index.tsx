@@ -9,7 +9,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { useNfcReader } from '@xpw2/nfc';
+import { useNfcReader } from '@fitsync/nfc';
 
 // DEV TESTING: Dedicated NFC scan test screen.
 // Shows raw JSON result on-screen after every scan attempt.

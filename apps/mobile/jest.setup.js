@@ -1,7 +1,7 @@
 import '@testing-library/jest-native/extend-expect';
 
-// ─── @xpw2/datasync ──────────────────────────────────────────────────────────
-jest.mock('@xpw2/datasync', () => ({
+// ─── @fitsync/datasync ──────────────────────────────────────────────────────────
+jest.mock('@fitsync/datasync', () => ({
   // Event Recording
   recordEvent: jest.fn().mockResolvedValue('mock-event-id'),
   recordEventWithCorrelation: jest.fn().mockResolvedValue('mock-event-id'),
@@ -93,8 +93,8 @@ jest.mock('@xpw2/datasync', () => ({
   addDeviceConnectionChangedListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
 }));
 
-// ─── @xpw2/nfc ───────────────────────────────────────────────────────────────
-jest.mock('@xpw2/nfc', () => ({
+// ─── @fitsync/nfc ───────────────────────────────────────────────────────────────
+jest.mock('@fitsync/nfc', () => ({
   NfcReader: jest.fn().mockImplementation(() => ({
     start: jest.fn().mockResolvedValue(undefined),
     stop: jest.fn().mockResolvedValue(undefined),
@@ -109,13 +109,14 @@ jest.mock('@xpw2/nfc', () => ({
     isScanning: false,
     lastResult: null,
     scanForMemberCard: jest.fn().mockResolvedValue({ success: false, error: 'No tag' }),
+    scanTagId: jest.fn().mockResolvedValue({ success: false, error: 'No tag' }),
     readTagId: jest.fn().mockResolvedValue(null),
     cancel: jest.fn(),
   }),
 }));
 
-// ─── @xpw2/ble-scale ─────────────────────────────────────────────────────────
-jest.mock('@xpw2/ble-scale', () => ({
+// ─── @fitsync/ble-scale ─────────────────────────────────────────────────────────
+jest.mock('@fitsync/ble-scale', () => ({
   BleScaleReader: jest.fn().mockImplementation(() => ({
     start: jest.fn().mockResolvedValue(undefined),
     stop: jest.fn().mockResolvedValue(undefined),
