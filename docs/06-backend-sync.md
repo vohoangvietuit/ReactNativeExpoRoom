@@ -15,54 +15,101 @@ WorkManager guarantees execution even if the app is backgrounded or the device r
 ```kotlin
 object SyncScheduler {
 
-    private const val SYNC_WORK_TAG = "xpw2_backend_sync"
-
-    // Periodic sync every 15 minutes when network is available
-    fun schedulePeriodicSync(context: Context) {
+    // Periodic backend sync every 15 minutes when network + battery are OK
+    fun schedulePeriodicBackendSync(context: Context) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
             .build()
 
-        val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+        val request = PeriodicWorkRequestBuilder<BackendSyncWorker>(15, TimeUnit.MINUTES)
             .setConstraints(constraints)
-            .addTag(SYNC_WORK_TAG)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
+            .addTag(BackendSyncWorker.TAG)
             .build()
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            SYNC_WORK_TAG,
+            BackendSyncWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             request
         )
     }
 
-    // One-shot sync (triggered after a session ends or when connectivity restored)
-    fun triggerImmediateSync(context: Context) {
-        val request = OneTimeWorkRequestBuilder<SyncWorker>()
+    fun cancelPeriodicBackendSync(context: Context) {
+        WorkManager.getInstance(context).cancelUniqueWork(BackendSyncWorker.WORK_NAME)
+    }
+
+    // One-shot backend sync (triggered from JS via triggerBackendSync())
+    fun triggerImmediateBackendSync(context: Context) {
+        val request = OneTimeWorkRequestBuilder<BackendSyncWorker>()
             .setConstraints(Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build())
-            .addTag(SYNC_WORK_TAG)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
+            .addTag(BackendSyncWorker.TAG)
             .build()
 
         WorkManager.getInstance(context).enqueue(request)
     }
+
+    // One-shot device sync (triggered on peer connection)
+    fun triggerDeviceSync(context: Context, endpointId: String, deviceId: String) { ... }
 }
 ```
 
-### SyncWorker
+### BackendSyncWorker
 
 ```kotlin
-class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+class BackendSyncWorker(
+    appContext: Context,
+    params: WorkerParameters
+) : CoroutineWorker(appContext, params) {
 
-    override suspend fun doWork(): Result {
-        return try {
+    companion object {
+        const val TAG = "BackendSyncWorker"
+        const val WORK_NAME = "xpw2_backend_sync"
+    }
+
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        try {
             val engine = DataSyncEngine(applicationContext)
-            val outbox = EventOutbox(engine, ...)
-            outbox.processPendingBackendSync()
-            Result.success()
+            val outbox = EventOutbox(
+                engine = engine,
+                onDeviceSyncBatch = { false }, // unused in backend worker
+                onBackendSyncBatch = { entries -> BackendSyncManager().uploadBatch(entries) }
+            )
+            val synced = outbox.processBackendSyncBatch()
+            Result.success(workDataOf("synced_count" to synced))
         } catch (e: Exception) {
-            if (runAttemptCount < 3) Result.retry() else Result.failure()
+            if (runAttemptCount < 3) Result.retry()
+            else Result.failure(workDataOf("error" to e.message))
         }
+    }
+}
+```
+
+### DeviceSyncWorker
+
+A one-shot worker triggered when a peer device connects. It creates the outgoing `EventBatch` payload and hands it to `NearbyManager` to send:
+
+```kotlin
+class DeviceSyncWorker(
+    appContext: Context,
+    params: WorkerParameters
+) : CoroutineWorker(appContext, params) {
+
+    companion object {
+        const val TAG = "DeviceSyncWorker"
+        const val WORK_NAME = "xpw2_device_sync"
+        const val KEY_ENDPOINT_ID = "endpoint_id"
+        const val KEY_DEVICE_ID = "device_id"
+    }
+
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        val endpointId = inputData.getString(KEY_ENDPOINT_ID) ?: return@withContext Result.failure()
+        val deviceId   = inputData.getString(KEY_DEVICE_ID)   ?: return@withContext Result.failure()
+        // Builds EventBatch payload — actual send is via NearbyManager in the module
+        ...
     }
 }
 ```
@@ -71,84 +118,73 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
 
 ## Batch Upload Pattern
 
-Events are uploaded in batches (up to 50 at a time) to reduce HTTP overhead:
+Events are uploaded in batches (up to 50 at a time) to reduce HTTP overhead. `BackendSyncWorker` calls `EventOutbox.processBackendSyncBatch()` which delegates to `BackendSyncManager.uploadBatch()`:
 
-```kotlin
+````kotlin
 // EventOutbox.kt
-suspend fun processPendingBackendSync() {
-    val pending = db.outboxDao().getPendingEntries(limit = 50)
-        .filter { it.status == "Pending" || it.status == "DeviceSynced" }
+suspend fun processBackendSyncBatch(): Int {
+    val pending = engine.getPendingOutboxEntries(BATCH_SIZE)
+        .filter { it.outbox.status == "Pending" || it.outbox.status == "DeviceSynced" }
 
-    if (pending.isEmpty()) return
+    if (pending.isEmpty()) return 0
 
-    val events = pending.mapNotNull { entry ->
-        db.eventDao().getEventById(entry.eventId)
-    }
-
-    val success = onBackendSyncBatch(pending.zip(events))
-    if (success) {
-        pending.forEach { entry ->
-            db.outboxDao().updateStatus(entry.eventId, "BackendSynced")
-        }
+    val success = onBackendSyncBatch(pending)
+    return if (success) {
+        pending.forEach { engine.markOutboxBackendSynced(it.outbox.eventId) }
+        pending.size
     } else {
-        pending.forEach { entry ->
-            db.outboxDao().markFailed(
-                eventId = entry.eventId,
-                retryCount = entry.retryCount + 1,
-                errorMessage = "Upload failed"
-            )
-        }
+        pending.forEach { engine.markOutboxFailed(it.outbox.eventId) }
+        0
     }
 }
-```
 
 ---
 
 ## Retry with Exponential Backoff
 
-WorkManager handles retry scheduling. The `SyncWorker` returns `Result.retry()` on transient failures. WorkManager uses exponential backoff (default: initial 30s, doubles per attempt, max 5 hours).
+WorkManager handles retry scheduling. `BackendSyncWorker` returns `Result.retry()` on transient failures (up to 3 attempts). Both the periodic and one-shot work requests use `BackoffPolicy.EXPONENTIAL` starting from `WorkRequest.MIN_BACKOFF_MILLIS`.
 
-For fine-grained control, the backoff policy is also configured on the work request:
-
-```kotlin
-OneTimeWorkRequestBuilder<SyncWorker>()
-    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-    .build()
-```
-
-The `OutboxEntity.retryCount` tracks application-level retries independently of WorkManager retries, for observability and giving up after a threshold.
+The `OutboxEntity.retryCount` tracks application-level failure counts independently of WorkManager retries, visible through `getSyncStatus()` on the JS side.
 
 ---
 
 ## `IBackendApi` Interface
 
-The backend API is abstracted behind an interface, allowing a mock implementation during development:
+The backend API is abstracted behind an interface, allowing a mock during development:
 
 ```kotlin
 interface IBackendApi {
-    suspend fun uploadEvents(events: List<EventData>): UploadResult
-    suspend fun fetchServerEvents(deviceId: String, since: Long): List<EventData>
+    suspend fun syncEvents(request: SyncRequest): SyncResponse
+    suspend fun fetchUpdates(deviceId: String, since: Long): List<SyncEventPayload>
 }
 
-data class UploadResult(
-    val accepted: Int,
-    val rejected: Int,
-    val errors: List<String>
+@Serializable
+data class SyncRequest(val events: List<SyncEventPayload>)
+
+@Serializable
+data class SyncResponse(
+    val success: Boolean,
+    val acceptedCount: Int,
+    val rejectedCount: Int,
+    val rejectedEventIds: List<String> = emptyList(),
+    val message: String? = null
 )
-```
+````
 
 ### Mock Implementation
 
 ```kotlin
 class MockBackendApi : IBackendApi {
-    override suspend fun uploadEvents(events: List<EventData>): UploadResult {
-        // Simulate network delay
-        delay(200)
-        return UploadResult(accepted = events.size, rejected = 0, errors = emptyList())
+    override suspend fun syncEvents(request: SyncRequest): SyncResponse {
+        delay(500) // simulate network
+        return SyncResponse(
+            success = true,
+            acceptedCount = request.events.size,
+            rejectedCount = 0
+        )
     }
 
-    override suspend fun fetchServerEvents(deviceId: String, since: Long): List<EventData> {
-        delay(100)
+    override suspend fun fetchUpdates(deviceId: String, since: Long): List<SyncEventPayload> {
         return emptyList()
     }
 }
@@ -180,10 +216,10 @@ The Redux `sync` slice listens to these events to update the UI sync indicator.
 
 Track sync health via the `OutboxEntity` table:
 
-| Query | Meaning |
-|-------|---------|
-| `WHERE status = 'Pending'` | Events not yet synced anywhere |
+| Query                                          | Meaning                           |
+| ---------------------------------------------- | --------------------------------- |
+| `WHERE status = 'Pending'`                     | Events not yet synced anywhere    |
 | `WHERE status = 'Failed' AND retry_count >= 3` | Stuck events (need investigation) |
-| `WHERE status = 'BackendSynced'` | Successfully uploaded |
+| `WHERE status = 'BackendSynced'`               | Successfully uploaded             |
 
 A "sync dashboard" screen in the `devices` feature can surface this data to the operator.

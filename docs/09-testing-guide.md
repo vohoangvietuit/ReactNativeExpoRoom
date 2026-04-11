@@ -43,7 +43,7 @@ module.exports = {
     'node_modules/(?!(' +
       '(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*' +
       '|@react-navigation/.*|immer|@xpw2/.*' +
-    '))',
+      '))',
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
@@ -68,17 +68,28 @@ The DataSync module calls native Kotlin code, which is unavailable in the Jest e
 
 ```typescript
 // __mocks__/@xpw2/datasync.ts  (or jest.mock() in test file)
-export const recordEvent = jest.fn().mockResolvedValue({
-  eventId: 'mock-event-id',
-  occurredAt: Date.now(),
+export const recordEvent = jest.fn().mockResolvedValue('mock-event-id');
+export const recordEventWithCorrelation = jest.fn().mockResolvedValue('mock-event-id');
+
+export const getAllMembers = jest.fn().mockResolvedValue([]);
+export const getAllSessions = jest.fn().mockResolvedValue([]);
+export const getAllTodos = jest.fn().mockResolvedValue([]);
+export const getActiveSession = jest.fn().mockResolvedValue(null);
+export const getSyncStatus = jest.fn().mockResolvedValue({
+  pendingCount: 0,
+  deviceSyncedCount: 0,
+  backendSyncedCount: 0,
+  failedCount: 0,
+  lastSyncAt: null,
+  isWorkerScheduled: false,
 });
 
-export const getMembers = jest.fn().mockResolvedValue([]);
-export const getSessions = jest.fn().mockResolvedValue([]);
-
-export const addSyncStatusListener    = jest.fn().mockReturnValue({ remove: jest.fn() });
-export const addDeviceFoundListener   = jest.fn().mockReturnValue({ remove: jest.fn() });
-export const addDeviceConnectionListener = jest.fn().mockReturnValue({ remove: jest.fn() });
+export const addEventRecordedListener = jest.fn().mockReturnValue({ remove: jest.fn() });
+export const addSyncStatusChangedListener = jest.fn().mockReturnValue({ remove: jest.fn() });
+export const addDeviceFoundListener = jest.fn().mockReturnValue({ remove: jest.fn() });
+export const addDeviceLostListener = jest.fn().mockReturnValue({ remove: jest.fn() });
+export const addDeviceConnectionChangedListener = jest.fn().mockReturnValue({ remove: jest.fn() });
+export const addConnectionRequestListener = jest.fn().mockReturnValue({ remove: jest.fn() });
 ```
 
 ```typescript
@@ -122,8 +133,8 @@ jest.mock('@xpw2/ble-scale', () => ({
 
 ```typescript
 jest.mock('expo-secure-store', () => ({
-  getItemAsync:    jest.fn().mockResolvedValue(null),
-  setItemAsync:    jest.fn().mockResolvedValue(undefined),
+  getItemAsync: jest.fn().mockResolvedValue(null),
+  setItemAsync: jest.fn().mockResolvedValue(undefined),
   deleteItemAsync: jest.fn().mockResolvedValue(undefined),
 }));
 ```
@@ -142,8 +153,10 @@ import authReducer, { loginThunk, logoutThunk } from '../authSlice';
 
 // Mock the service layer
 jest.mock('../../services/authService');
-const mockedLogin       = authService.login       as jest.MockedFunction<typeof authService.login>;
-const mockedGetProfile  = authService.getProfile  as jest.MockedFunction<typeof authService.getProfile>;
+const mockedLogin = authService.login as jest.MockedFunction<typeof authService.login>;
+const mockedGetProfile = authService.getProfile as jest.MockedFunction<
+  typeof authService.getProfile
+>;
 
 function makeStore() {
   return configureStore({ reducer: { auth: authReducer } });
@@ -196,8 +209,8 @@ import { storeTokens, getStoredTokens, clearTokens } from '../authService';
 
 jest.mock('expo-secure-store');
 
-const mockSet    = SecureStore.setItemAsync    as jest.Mock;
-const mockGet    = SecureStore.getItemAsync    as jest.Mock;
+const mockSet = SecureStore.setItemAsync as jest.Mock;
+const mockGet = SecureStore.getItemAsync as jest.Mock;
 const mockDelete = SecureStore.deleteItemAsync as jest.Mock;
 
 describe('authService', () => {
@@ -247,7 +260,9 @@ import LoginScreen from '../LoginScreen';
 
 it('shows error message on bad credentials', async () => {
   const { getByPlaceholderText, getByText } = render(
-    <Provider store={makeStore()}><LoginScreen /></Provider>
+    <Provider store={makeStore()}>
+      <LoginScreen />
+    </Provider>,
   );
 
   fireEvent.changeText(getByPlaceholderText('Email'), 'bad@email.com');
@@ -287,10 +302,10 @@ describe('EVENT_TYPES', () => {
 
 ## Coverage Targets
 
-| Area | Target |
-|------|--------|
-| Redux slices (reducers + thunks) | 90%+ |
-| Service layer (authService, etc.) | 85%+ |
-| Utility parsers (weightParser, ndefParser) | 95%+ |
-| Custom hooks | 80%+ |
-| Screen components | 60%+ (critical paths) |
+| Area                                       | Target                |
+| ------------------------------------------ | --------------------- |
+| Redux slices (reducers + thunks)           | 90%+                  |
+| Service layer (authService, etc.)          | 85%+                  |
+| Utility parsers (weightParser, ndefParser) | 95%+                  |
+| Custom hooks                               | 80%+                  |
+| Screen components                          | 60%+ (critical paths) |

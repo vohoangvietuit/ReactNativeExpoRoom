@@ -25,7 +25,9 @@ packages/datasync/
     │   ├── NearbyManager.kt         # Google Nearby Connections
     │   └── NearbyPayloadHandler.kt  # Payload serialization
     └── worker/
-        └── SyncScheduler.kt         # WorkManager scheduling
+        ├── BackendSyncWorker.kt    # WorkManager worker for backend HTTP sync
+        ├── DeviceSyncWorker.kt     # WorkManager worker for device-to-device sync
+        └── SyncScheduler.kt        # WorkManager scheduling
 ```
 
 ---
@@ -96,6 +98,7 @@ object KeystoreHelper {
 ```
 
 **Key properties:**
+
 - Passphrase generated once per device, stored encrypted
 - Backed by the Android Keystore hardware security module
 - Never leaves device memory in plaintext
@@ -235,13 +238,13 @@ const ExpoDataSync = requireNativeModule('ExpoDataSync');
 
 export async function recordEvent(
   eventType: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
 ): Promise<{ eventId: string; occurredAt: number }> {
   return ExpoDataSync.recordEvent(eventType, JSON.stringify(payload));
 }
 
 export function addSyncStatusListener(
-  listener: (event: SyncStatusEvent) => void
+  listener: (event: SyncStatusEvent) => void,
 ): EventSubscription {
   return ExpoDataSync.addListener('onSyncStatusChanged', listener);
 }
