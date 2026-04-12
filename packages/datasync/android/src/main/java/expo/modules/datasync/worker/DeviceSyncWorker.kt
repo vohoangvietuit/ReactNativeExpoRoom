@@ -24,7 +24,7 @@ class DeviceSyncWorker(
 
     companion object {
         const val TAG = "DeviceSyncWorker"
-        const val WORK_NAME = "xpw2_device_sync"
+        const val WORK_NAME = "fitsync_device_sync"
         const val KEY_ENDPOINT_ID = "endpoint_id"
         const val KEY_DEVICE_ID = "device_id"
     }

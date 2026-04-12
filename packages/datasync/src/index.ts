@@ -126,12 +126,14 @@ export interface DeviceSyncInfo {
 export interface DiscoveredDevice {
   endpointId: string;
   endpointName: string;
+  remoteDeviceId?: string;
   serviceId: string;
 }
 
 export interface ConnectedDevice {
   endpointId: string;
   endpointName: string;
+  remoteDeviceId?: string;
 }
 
 // ─── Event Callback Types ───────────────────────────────────────────────
@@ -151,6 +153,7 @@ export interface SyncStatusChangedPayload {
 export interface DeviceFoundPayload {
   endpointId: string;
   endpointName: string;
+  remoteDeviceId?: string;
   serviceId: string;
 }
 
@@ -163,12 +166,21 @@ export interface DeviceConnectionChangedPayload {
   connected: boolean;
 }
 
+export interface ConnectionRequestPayload {
+  endpointId: string;
+  endpointName: string;
+  remoteDeviceId?: string;
+  authenticationDigits: string;
+  /** true = responder/advertiser (show Accept/Reject), false = initiator (read-only code display) */
+  isIncoming: boolean;
+}
+
 // ─── Event Recording ────────────────────────────────────────────────────
 
 export async function recordEvent(
   eventType: string,
   payload: Record<string, unknown>,
-  sessionId: string
+  sessionId: string,
 ): Promise<string> {
   return ExpoDataSync.recordEvent(eventType, JSON.stringify(payload), sessionId);
 }
@@ -177,13 +189,13 @@ export async function recordEventWithCorrelation(
   eventType: string,
   payload: Record<string, unknown>,
   sessionId: string,
-  correlationId: string
+  correlationId: string,
 ): Promise<string> {
   return ExpoDataSync.recordEventWithCorrelation(
     eventType,
     JSON.stringify(payload),
     sessionId,
-    correlationId
+    correlationId,
   );
 }
 
@@ -247,6 +259,14 @@ export async function connectToDevice(deviceName: string, endpointId: string): P
 
 export async function disconnectDevice(endpointId: string): Promise<string> {
   return ExpoDataSync.disconnectDevice(endpointId);
+}
+
+export async function acceptConnection(endpointId: string): Promise<string> {
+  return ExpoDataSync.acceptConnection(endpointId);
+}
+
+export async function rejectConnection(endpointId: string): Promise<string> {
+  return ExpoDataSync.rejectConnection(endpointId);
 }
 
 export async function disconnectAll(): Promise<string> {
@@ -347,6 +367,14 @@ export async function getPairedDevices(): Promise<DeviceRecord[]> {
   return ExpoDataSync.getPairedDevices();
 }
 
+export async function removePairedDevice(deviceId: string): Promise<string> {
+  return ExpoDataSync.removePairedDevice(deviceId);
+}
+
+export async function unpairDevice(deviceId: string): Promise<string> {
+  return ExpoDataSync.unpairDevice(deviceId);
+}
+
 // ─── Device Info ────────────────────────────────────────────────────────
 
 export async function getDeviceId(): Promise<string> {
@@ -370,31 +398,37 @@ export async function stopOutboxProcessing(): Promise<string> {
 // ─── Event Subscriptions ────────────────────────────────────────────────
 
 export function addEventRecordedListener(
-  callback: (event: EventRecordedPayload) => void
+  callback: (event: EventRecordedPayload) => void,
 ): EventSubscription {
   return emitter.addListener('onEventRecorded', callback);
 }
 
 export function addSyncStatusChangedListener(
-  callback: (event: SyncStatusChangedPayload) => void
+  callback: (event: SyncStatusChangedPayload) => void,
 ): EventSubscription {
   return emitter.addListener('onSyncStatusChanged', callback);
 }
 
 export function addDeviceFoundListener(
-  callback: (event: DeviceFoundPayload) => void
+  callback: (event: DeviceFoundPayload) => void,
 ): EventSubscription {
   return emitter.addListener('onDeviceFound', callback);
 }
 
 export function addDeviceLostListener(
-  callback: (event: DeviceLostPayload) => void
+  callback: (event: DeviceLostPayload) => void,
 ): EventSubscription {
   return emitter.addListener('onDeviceLost', callback);
 }
 
 export function addDeviceConnectionChangedListener(
-  callback: (event: DeviceConnectionChangedPayload) => void
+  callback: (event: DeviceConnectionChangedPayload) => void,
 ): EventSubscription {
   return emitter.addListener('onDeviceConnectionChanged', callback);
+}
+
+export function addConnectionRequestListener(
+  callback: (event: ConnectionRequestPayload) => void,
+): EventSubscription {
+  return emitter.addListener('onConnectionRequest', callback);
 }

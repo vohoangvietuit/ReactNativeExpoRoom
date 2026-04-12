@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BleScaleReader } from '../BleScaleReader';
-import type { ScaleDevice, ScaleReading } from '../types';
+import type { ScaleDevice, ScaleReading, RawBleDevice } from '../types';
 
 export function useScaleWeight() {
   const readerRef = useRef<BleScaleReader>(new BleScaleReader());
   const [isScanning, setIsScanning] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [discoveredScales, setDiscoveredScales] = useState<ScaleDevice[]>([]);
+  const [allRawDevices, setAllRawDevices] = useState<RawBleDevice[]>([]);
   const [connectedDevice, setConnectedDevice] = useState<ScaleDevice | null>(null);
   const [lastReading, setLastReading] = useState<ScaleReading | null>(null);
 
@@ -15,6 +16,14 @@ export function useScaleWeight() {
 
     reader.onScaleFound = (device) => {
       setDiscoveredScales((prev) => {
+        const exists = prev.some((d) => d.id === device.id);
+        return exists ? prev : [...prev, device];
+      });
+    };
+
+    reader.onRawDeviceFound = (device) => {
+      console.log('[BLE Raw]', JSON.stringify(device));
+      setAllRawDevices((prev) => {
         const exists = prev.some((d) => d.id === device.id);
         return exists ? prev : [...prev, device];
       });
@@ -43,6 +52,15 @@ export function useScaleWeight() {
     setTimeout(() => setIsScanning(false), timeoutMs);
   }, []);
 
+  /** Scan all nearby BLE devices — no filter. Populates allRawDevices for debugging. */
+  const startScanAll = useCallback((timeoutMs = 10000) => {
+    setDiscoveredScales([]);
+    setAllRawDevices([]);
+    setIsScanning(true);
+    readerRef.current.startScanAll(timeoutMs);
+    setTimeout(() => setIsScanning(false), timeoutMs);
+  }, []);
+
   const stopScan = useCallback(() => {
     readerRef.current.stopScan();
     setIsScanning(false);
@@ -65,9 +83,11 @@ export function useScaleWeight() {
     isScanning,
     isConnected,
     discoveredScales,
+    allRawDevices,
     connectedDevice,
     lastReading,
     startScan,
+    startScanAll,
     stopScan,
     connect,
     disconnect,

@@ -1,7 +1,7 @@
 // ─── Constants ──────────────────────────────────────────────────────────
 
 // Google Nearby Connections service ID
-export const NEARBY_SERVICE_ID = 'com.xpw2.datasync';
+export const NEARBY_SERVICE_ID = 'com.fitsync.datasync';
 
 // BLE Weight Measurement Service UUID (Bluetooth SIG standard)
 export const BLE_WEIGHT_SERVICE_UUID = '0000181D-0000-1000-8000-00805F9B34FB';
@@ -19,7 +19,7 @@ export const INITIAL_BACKOFF_MS = 1000;
 export const NEARBY_MAX_PAYLOAD_BYTES = 32 * 1024; // 32KB
 
 // Database name
-export const DATABASE_NAME = 'xpw2.db';
+export const DATABASE_NAME = 'fitsync.db';
 
 // Event batch size for backend sync
 export const BACKEND_SYNC_BATCH_SIZE = 50;

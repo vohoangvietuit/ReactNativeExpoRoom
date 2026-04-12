@@ -1,4 +1,4 @@
-# XPW2
+# FitSync
 
 Offline-first, event-sourced body management Android app. React Native · Expo · Redux Toolkit · Room (SQLCipher) · NFC · BLE scales · Cross-tablet sync.
 
@@ -52,7 +52,7 @@ cd apps/mobile
 npx expo prebuild --platform android          # generate native project (first time)
 cd android && ./gradlew assembleDebug         # build APK
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.xpw2.mobile/.MainActivity
+adb shell am start -n com.fitsync.mobile/.MainActivity
 cd .. && npx expo start --port 8081           # start Metro in separate terminal
 ```
 
@@ -63,7 +63,7 @@ cd apps/mobile/android
 
 ./gradlew assembleRelease
 adb install -r app/build/outputs/apk/release/app-release.apk
-adb shell am start -n com.xpw2.mobile/.MainActivity
+adb shell am start -n com.fitsync.mobile/.MainActivity
 ```
 
 > Release builds run without Metro — the JS bundle is embedded in the APK.
@@ -167,4 +167,4 @@ Current stories:
 
 ---
 
-**Target:** Samsung S25 Ultra (arm64-v8a) · **License:** Proprietary — XPW2 Fitness Solutions
+**Target:** Samsung S25 Ultra (arm64-v8a) · **License:** Proprietary — FitSync Fitness Solutions

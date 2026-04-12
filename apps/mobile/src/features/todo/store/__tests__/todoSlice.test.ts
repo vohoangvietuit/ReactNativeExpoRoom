@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
-import * as DataSync from '@xpw2/datasync';
-import type { TodoRecord } from '@xpw2/datasync';
+import * as DataSync from '@fitsync/datasync';
+import type { TodoRecord } from '@fitsync/datasync';
 import todoReducer, {
   loadTodosThunk,
   createTodoThunk,

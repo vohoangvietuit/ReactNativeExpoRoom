@@ -1,6 +1,6 @@
 # 04 — Event Model
 
-XPW2 is an event-sourced system. Every state change is recorded as an immutable **event** before any side effects are applied. The Room database stores the full event log; domain tables are projections derived from it.
+FitSync is an event-sourced system. Every state change is recorded as an immutable **event** before any side effects are applied. The Room database stores the full event log; domain tables are projections derived from it.
 
 ---
 
@@ -10,14 +10,14 @@ Every event shares this structure, defined in `packages/shared/src/events.ts`:
 
 ```typescript
 export interface EventEnvelope {
-  eventId:        string;   // UUID v4 — globally unique
-  deviceId:       string;   // Android ANDROID_ID of the issuing tablet
-  sessionId:      string;   // Current session UUID
-  eventType:      EventType;
-  occurredAt:     string;   // ISO 8601 timestamp
-  payload:        Record<string, unknown>; // Event-specific data
-  idempotencyKey: string;   // Deduplication key (see below)
-  correlationId:  string;   // Tracing key (see below)
+  eventId: string; // UUID v4 — globally unique
+  deviceId: string; // Android ANDROID_ID of the issuing tablet
+  sessionId: string; // Current session UUID
+  eventType: EventType;
+  occurredAt: string; // ISO 8601 timestamp
+  payload: Record<string, unknown>; // Event-specific data
+  idempotencyKey: string; // Deduplication key (see below)
+  correlationId: string; // Tracing key (see below)
 }
 ```
 
@@ -31,30 +31,24 @@ Events are stored in the `events` table. `payload` is stored as a JSON string. T
 
 The `idempotencyKey` ensures that the same real-world action is never recorded twice, even if the event is transmitted multiple times across devices.
 
-**Generation pattern:**
+**Generation pattern (Kotlin — `DataSyncEngine.kt`):**
 
-```typescript
-// packages/shared/src/events.ts
-export function generateIdempotencyKey(
-  deviceId: string,
-  sessionId: string,
-  eventType: string,
-  naturalKey: string   // e.g., memberId + sessionId for WeightRecorded
-): string {
-  return `${deviceId}:${sessionId}:${eventType}:${naturalKey}`;
-}
+```kotlin
+// Generated inside DataSyncEngine.recordEvent()
+val idempotencyKey = "$deviceId:$eventId"   // stable, globally unique
 ```
+
+Each local event receives a fresh UUID `eventId`, making `deviceId:eventId` globally unique. Remote events received from peer tablets preserve their original `idempotencyKey`.
 
 **Deduplication at insert:**
 
 ```kotlin
-// EventDao.kt
-@Insert(onConflict = OnConflictStrategy.IGNORE)
-suspend fun insertEvent(event: EventEntity): Long
-// Returns -1 if a row with this idempotencyKey already exists (UNIQUE index)
+// DataSyncEngine.recordRemoteEvent()
+val existing = db.eventDao().getByIdempotencyKey(event.idempotencyKey)
+if (existing != null) return false  // already have this event — skip
 ```
 
-If `IGNORE` returns -1, the engine skips outbox enqueuing — the event was already processed.
+The engine checks for an existing row by `idempotencyKey` before inserting remote events. If the key was seen before, the insert and outbox enqueue are both skipped.
 
 ---
 
@@ -62,11 +56,11 @@ If `IGNORE` returns -1, the engine skips outbox enqueuing — the event was alre
 
 The `correlationId` links related events for distributed tracing. Examples:
 
-| Scenario | correlationId |
-|----------|--------------|
-| Member identified then weighed in same flow | Same UUID for both events |
-| Payment recorded in response to session start | Session's correlationId |
-| Independent standalone action | New UUID (same as eventId) |
+| Scenario                                      | correlationId              |
+| --------------------------------------------- | -------------------------- |
+| Member identified then weighed in same flow   | Same UUID for both events  |
+| Payment recorded in response to session start | Session's correlationId    |
+| Independent standalone action                 | New UUID (same as eventId) |
 
 This allows reconstructing cause-and-effect chains across devices and time.
 
@@ -78,9 +72,9 @@ This allows reconstructing cause-and-effect chains across devices and time.
 
 ```typescript
 interface SessionStartedPayload {
-  groupId:      string;
+  groupId: string;
   consultantId: string;
-  startedAt:    string; // ISO 8601
+  startedAt: string; // ISO 8601
 }
 ```
 
@@ -88,9 +82,9 @@ interface SessionStartedPayload {
 
 ```typescript
 interface SessionEndedPayload {
-  endedAt:     string;
+  endedAt: string;
   memberCount: number;
-  eventCount:  number;
+  eventCount: number;
 }
 ```
 
@@ -98,9 +92,9 @@ interface SessionEndedPayload {
 
 ```typescript
 interface MemberRegisteredPayload {
-  memberId:   string;
-  name:       string;
-  email?:     string;
+  memberId: string;
+  name: string;
+  email?: string;
   nfcCardId?: string; // UID of the NFC card linked to this member
 }
 ```
@@ -109,8 +103,8 @@ interface MemberRegisteredPayload {
 
 ```typescript
 interface MemberIdentifiedPayload {
-  memberId:   string;
-  method:     'nfc' | 'search' | 'digital_card';
+  memberId: string;
+  method: 'nfc' | 'search' | 'digital_card';
   nfcCardId?: string;
 }
 ```
@@ -120,10 +114,10 @@ interface MemberIdentifiedPayload {
 ```typescript
 interface PaymentRecordedPayload {
   paymentId: string;
-  memberId:  string;
-  amount:    number;
-  currency:  string; // ISO 4217, e.g., "GBP"
-  type:      'cash' | 'card' | 'online';
+  memberId: string;
+  amount: number;
+  currency: string; // ISO 4217, e.g., "GBP"
+  type: 'cash' | 'card' | 'online';
 }
 ```
 
@@ -131,13 +125,13 @@ interface PaymentRecordedPayload {
 
 ```typescript
 interface WeightRecordedPayload {
-  recordId:        string;
-  memberId:        string;
-  weight:          number; // kg, 1 decimal
+  recordId: string;
+  memberId: string;
+  weight: number; // kg, 1 decimal
   previousWeight?: number;
-  change?:         number; // weight - previousWeight
-  source:          'manual' | 'scale';
-  scaleDeviceId?:  string;
+  change?: number; // weight - previousWeight
+  source: 'manual' | 'scale';
+  scaleDeviceId?: string;
 }
 ```
 
@@ -145,11 +139,11 @@ interface WeightRecordedPayload {
 
 ```typescript
 interface AwardGrantedPayload {
-  awardId:     string;
-  memberId:    string;
-  type:        AwardType; // 'first_week' | 'weight_loss_5' | 'target_reached' | ...
+  awardId: string;
+  memberId: string;
+  type: AwardType; // 'first_week' | 'weight_loss_5' | 'target_reached' | ...
   description: string;
-  grantedAt:   string;
+  grantedAt: string;
 }
 ```
 
@@ -157,8 +151,8 @@ interface AwardGrantedPayload {
 
 ```typescript
 interface TodoCreatedPayload {
-  todoId:       string;
-  title:        string;
+  todoId: string;
+  title: string;
   description?: string;
 }
 ```
@@ -167,10 +161,10 @@ interface TodoCreatedPayload {
 
 ```typescript
 interface TodoUpdatedPayload {
-  todoId:       string;
-  title?:       string;
+  todoId: string;
+  title?: string;
   description?: string;
-  completed?:   boolean;
+  completed?: boolean;
 }
 ```
 
@@ -189,16 +183,16 @@ interface TodoDeletedPayload {
 ```typescript
 // packages/shared/src/events.ts
 export const EVENT_TYPES = {
-  SESSION_STARTED:    'SessionStarted',
-  SESSION_ENDED:      'SessionEnded',
-  MEMBER_REGISTERED:  'MemberRegistered',
-  MEMBER_IDENTIFIED:  'MemberIdentified',
-  PAYMENT_RECORDED:   'PaymentRecorded',
-  WEIGHT_RECORDED:    'WeightRecorded',
-  AWARD_GRANTED:      'AwardGranted',
-  TODO_CREATED:       'TodoCreated',
-  TODO_UPDATED:       'TodoUpdated',
-  TODO_DELETED:       'TodoDeleted',
+  SESSION_STARTED: 'SessionStarted',
+  SESSION_ENDED: 'SessionEnded',
+  MEMBER_REGISTERED: 'MemberRegistered',
+  MEMBER_IDENTIFIED: 'MemberIdentified',
+  PAYMENT_RECORDED: 'PaymentRecorded',
+  WEIGHT_RECORDED: 'WeightRecorded',
+  AWARD_GRANTED: 'AwardGranted',
+  TODO_CREATED: 'TodoCreated',
+  TODO_UPDATED: 'TodoUpdated',
+  TODO_DELETED: 'TodoDeleted',
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
@@ -222,9 +216,9 @@ An event can be in `DeviceSynced` and later transition to `BackendSynced` — th
 
 ```typescript
 export const OUTBOX_STATUS = {
-  PENDING:        'Pending',
-  DEVICE_SYNCED:  'DeviceSynced',
+  PENDING: 'Pending',
+  DEVICE_SYNCED: 'DeviceSynced',
   BACKEND_SYNCED: 'BackendSynced',
-  FAILED:         'Failed',
+  FAILED: 'Failed',
 } as const;
 ```

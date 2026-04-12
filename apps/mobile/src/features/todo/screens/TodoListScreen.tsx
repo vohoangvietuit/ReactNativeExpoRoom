@@ -1,44 +1,52 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useStore';
-import { loadTodosThunk, createTodoThunk, updateTodoThunk, deleteTodoThunk } from '../store/todoSlice';
+import {
+  loadTodosThunk,
+  createTodoThunk,
+  updateTodoThunk,
+  deleteTodoThunk,
+} from '../store/todoSlice';
+import * as DataSync from '@fitsync/datasync';
 
 export default function TodoListScreen() {
   const dispatch = useAppDispatch();
   const { todos, isLoading } = useAppSelector((s) => s.todo);
-  const activeSession = useAppSelector((s) => s.session.activeSession);
+  // const activeSession = useAppSelector((s) => s.session.activeSession); // SESSION DISABLED
   const [newTitle, setNewTitle] = useState('');
 
   useEffect(() => {
     dispatch(loadTodosThunk());
+
+    // Auto-reload todos when sync completes
+    const syncSub = DataSync.addSyncStatusChangedListener(() => {
+      // Reload todos when the other phone sends us updates
+      dispatch(loadTodosThunk());
+    });
+
+    return () => {
+      syncSub.remove();
+    };
   }, [dispatch]);
 
   const handleCreate = useCallback(() => {
     const title = newTitle.trim();
     if (!title) return;
-    const sessionId = activeSession?.id ?? 'test-session';
+    const sessionId = 'no-session'; // SESSION DISABLED — replace with activeSession?.id when re-enabled
     dispatch(createTodoThunk({ title, sessionId })).then(() => {
       dispatch(loadTodosThunk());
     });
     setNewTitle('');
-  }, [dispatch, newTitle, activeSession]);
+  }, [dispatch, newTitle]);
 
   const handleToggle = useCallback(
     (todoId: string, completed: boolean) => {
-      const sessionId = activeSession?.id ?? 'test-session';
+      const sessionId = 'no-session'; // SESSION DISABLED
       dispatch(updateTodoThunk({ todoId, completed: !completed, sessionId })).then(() => {
         dispatch(loadTodosThunk());
       });
     },
-    [dispatch, activeSession]
+    [dispatch],
   );
 
   const handleDelete = useCallback(
@@ -49,7 +57,7 @@ export default function TodoListScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            const sessionId = activeSession?.id ?? 'test-session';
+            const sessionId = 'no-session'; // SESSION DISABLED
             dispatch(deleteTodoThunk({ todoId, sessionId })).then(() => {
               dispatch(loadTodosThunk());
             });
@@ -57,7 +65,7 @@ export default function TodoListScreen() {
         },
       ]);
     },
-    [dispatch, activeSession]
+    [dispatch],
   );
 
   const renderItem = useCallback(
@@ -77,7 +85,7 @@ export default function TodoListScreen() {
         </TouchableOpacity>
       </View>
     ),
-    [handleToggle, handleDelete]
+    [handleToggle, handleDelete],
   );
 
   // DEV TESTING: Session guard removed — uses 'test-session' fallback when no active session.
@@ -95,7 +103,11 @@ export default function TodoListScreen() {
           returnKeyType="done"
           accessibilityLabel="New todo title"
         />
-        <TouchableOpacity style={styles.addButton} onPress={handleCreate} accessibilityLabel="Add todo">
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={handleCreate}
+          accessibilityLabel="Add todo"
+        >
           <Text style={styles.addButtonText}>+</Text>
         </TouchableOpacity>
       </View>

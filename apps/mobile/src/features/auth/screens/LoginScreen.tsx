@@ -6,7 +6,7 @@ import { loginThunk, clearError } from '../store/authSlice';
 export default function LoginScreen() {
   const dispatch = useAppDispatch();
   const { isLoading, error } = useAppSelector((s) => s.auth);
-  const [email, setEmail] = useState('test@xpw2.com');
+  const [email, setEmail] = useState('test@fitsync.com');
   const [password, setPassword] = useState('password');
 
   const handleLogin = () => {
@@ -16,7 +16,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>XPW2</Text>
+      <Text style={styles.title}>FitSync</Text>
       <Text style={styles.subtitle}>Body Management System</Text>
 
       <TextInput
@@ -54,7 +54,7 @@ export default function LoginScreen() {
         )}
       </TouchableOpacity>
 
-      <Text style={styles.hint}>Test: test@xpw2.com / password</Text>
+      <Text style={styles.hint}>Test: test@fitsync.com / password</Text>
     </View>
   );
 }

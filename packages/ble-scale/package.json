@@ -1,5 +1,5 @@
 {
-  "name": "@xpw2/ble-scale",
+  "name": "@fitsync/ble-scale",
   "version": "0.1.0",
   "private": true,
   "main": "src/index.ts",
@@ -17,6 +17,6 @@
   },
   "devDependencies": {
     "typescript": "~5.8.3",
-    "@xpw2/tsconfig": "workspace:*"
+    "@fitsync/tsconfig": "workspace:*"
   }
 }

@@ -1,20 +1,20 @@
 import * as SecureStore from 'expo-secure-store';
-import type { AuthTokens, UserProfile } from '@xpw2/shared';
+import type { AuthTokens, UserProfile } from '@fitsync/shared';
 
-const ACCESS_TOKEN_KEY = 'xpw2_access_token';
-const REFRESH_TOKEN_KEY = 'xpw2_refresh_token';
+const ACCESS_TOKEN_KEY = 'fitsync_access_token';
+const REFRESH_TOKEN_KEY = 'fitsync_refresh_token';
 
 // Mock user for testing
 const MOCK_USER: UserProfile = {
   id: 'consultant-001',
-  email: 'consultant@xpw2.com',
+  email: 'consultant@fitsync.com',
   name: 'Test Consultant',
   role: 'consultant',
 };
 
 export async function login(email: string, password: string): Promise<AuthTokens> {
   // Mock login — replace with real API
-  if (email === 'test@xpw2.com' && password === 'password') {
+  if (email === 'test@fitsync.com' && password === 'password') {
     const tokens: AuthTokens = {
       accessToken: `mock-access-${Date.now()}`,
       refreshToken: `mock-refresh-${Date.now()}`,

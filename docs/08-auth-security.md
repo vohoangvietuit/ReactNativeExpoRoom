@@ -22,8 +22,8 @@ The auth flow is handled by `apps/mobile/src/features/auth/`:
 ```typescript
 import * as SecureStore from 'expo-secure-store';
 
-const ACCESS_TOKEN_KEY  = 'xpw2_access_token';
-const REFRESH_TOKEN_KEY = 'xpw2_refresh_token';
+const ACCESS_TOKEN_KEY  = 'fitsync_access_token';
+const REFRESH_TOKEN_KEY = 'fitsync_refresh_token';
 
 export async function storeTokens(tokens: AuthTokens): Promise<void> {
   await SecureStore.setItemAsync(ACCESS_TOKEN_KEY,  tokens.accessToken);
@@ -66,10 +66,10 @@ The Redux auth slice's middleware intercepts 401 responses and calls `refreshTok
 
 ### Mock Auth Service
 
-During development, credentials `test@xpw2.com / password` return mock tokens:
+During development, credentials `test@fitsync.com / password` return mock tokens:
 
 ```typescript
-if (email === 'test@xpw2.com' && password === 'password') {
+if (email === 'test@fitsync.com' && password === 'password') {
   return {
     accessToken:  `mock-access-${Date.now()}`,
     refreshToken: `mock-refresh-${Date.now()}`,
@@ -85,7 +85,7 @@ Replace this block with a real `fetch`/`axios` call to your auth API endpoint.
 
 ## SQLCipher Database Encryption
 
-The local Room database (`xpw2.db`) is encrypted with SQLCipher 4.5.4.
+The local Room database (`fitsync.db`) is encrypted with SQLCipher 4.5.4.
 
 **Cipher:** AES-256-CBC (SQLCipher default)  
 **Key derivation:** PBKDF2-HMAC-SHA512, 256-bit key

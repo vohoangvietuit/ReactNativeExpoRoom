@@ -1,17 +1,8 @@
-export interface NfcMemberCard {
-  memberId: string;
-  name: string;
-  membershipNumber: string;
-  rawData?: string;
-  tagId?: string;
-  tagType?: string;
-}
-
-export interface NfcScanResult {
+/** Result for tag-ID-only scans — tagId IS the member identifier. */
+export interface NfcTagIdResult {
   success: boolean;
-  card?: NfcMemberCard;
-  error?: string;
   tagId?: string;
+  error?: string;
 }
 
 export interface NfcStatus {

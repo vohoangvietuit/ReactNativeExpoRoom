@@ -4,7 +4,7 @@ import {
   WEIGHT_SERVICE_UUID,
   WEIGHT_MEASUREMENT_CHAR_UUID,
 } from './weightParser';
-import type { ScaleDevice, ScaleReading } from './types';
+import type { ScaleDevice, ScaleReading, RawBleDevice } from './types';
 
 /**
  * BleScaleReader — BLE scale connection and weight reading.
@@ -21,6 +21,8 @@ export class BleScaleReader {
   onScaleFound?: (device: ScaleDevice) => void;
   onWeightReading?: (reading: ScaleReading) => void;
   onConnectionChanged?: (connected: boolean) => void;
+  /** Called for every BLE advertisement seen during startScanAll() — no filtering. */
+  onRawDeviceFound?: (device: RawBleDevice) => void;
 
   constructor() {
     this.manager = new BleManager();
@@ -46,10 +48,53 @@ export class BleScaleReader {
             isConnectable: device.isConnectable ?? true,
           });
         }
-      }
+      },
     );
 
     // Auto-stop scan after timeout
+    setTimeout(() => this.stopScan(), timeoutMs);
+  }
+
+  /**
+   * Scan ALL nearby BLE devices — no service UUID filter, no name filter.
+   * Use for development/debugging to see what's in range.
+   * Calls both onRawDeviceFound (every advertisement) and onScaleFound (weight scales only).
+   */
+  startScanAll(timeoutMs = 10000): void {
+    this.manager.startDeviceScan(
+      null, // null = no service UUID filter
+      { allowDuplicates: false },
+      (error, device) => {
+        if (error) {
+          return;
+        }
+        if (!device) return;
+
+        // Always report raw device for debugging
+        this.onRawDeviceFound?.({
+          id: device.id,
+          name: device.name ?? null,
+          rssi: device.rssi ?? null,
+          isConnectable: device.isConnectable ?? null,
+          serviceUUIDs: device.serviceUUIDs ?? null,
+          manufacturerData: device.manufacturerData ?? null,
+        });
+
+        // Still report to onScaleFound if it looks like a weight scale
+        const isWeightScale =
+          device.name &&
+          device.serviceUUIDs?.some((u) => u.toUpperCase() === WEIGHT_SERVICE_UUID.toUpperCase());
+        if (isWeightScale && device.name) {
+          this.onScaleFound?.({
+            id: device.id,
+            name: device.name,
+            rssi: device.rssi ?? -100,
+            isConnectable: device.isConnectable ?? true,
+          });
+        }
+      },
+    );
+
     setTimeout(() => this.stopScan(), timeoutMs);
   }
 
@@ -87,13 +132,13 @@ export class BleScaleReader {
             const reading = parseWeightMeasurement(
               characteristic.value,
               device.id,
-              device.name ?? 'Unknown Scale'
+              device.name ?? 'Unknown Scale',
             );
             if (reading) {
               this.onWeightReading?.(reading);
             }
           }
-        }
+        },
       );
 
       // Monitor disconnection

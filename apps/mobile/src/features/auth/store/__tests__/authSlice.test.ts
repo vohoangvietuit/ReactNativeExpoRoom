@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
-import type { AuthTokens, UserProfile } from '@xpw2/shared';
+import type { AuthTokens, UserProfile } from '@fitsync/shared';
 import * as authService from '../../services/authService';
 import authReducer, {
   loginThunk,
@@ -18,7 +18,7 @@ const mockTokens: AuthTokens = {
 
 const mockUser: UserProfile = {
   id: 'consultant-001',
-  email: 'consultant@xpw2.com',
+  email: 'consultant@fitsync.com',
   name: 'Test Consultant',
   role: 'consultant',
 };
@@ -105,7 +105,7 @@ describe('authSlice', () => {
       mockedLogin.mockReturnValue(new Promise(() => {}));
       const store = makeStore();
 
-      store.dispatch(loginThunk({ email: 'test@xpw2.com', password: 'password' }));
+      store.dispatch(loginThunk({ email: 'test@fitsync.com', password: 'password' }));
 
       const state = store.getState().auth;
       expect(state.isLoading).toBe(true);
@@ -117,7 +117,7 @@ describe('authSlice', () => {
       mockedGetProfile.mockResolvedValue(mockUser);
       const store = makeStore();
 
-      await store.dispatch(loginThunk({ email: 'test@xpw2.com', password: 'password' }));
+      await store.dispatch(loginThunk({ email: 'test@fitsync.com', password: 'password' }));
 
       const state = store.getState().auth;
       expect(state.isLoading).toBe(false);
@@ -131,7 +131,7 @@ describe('authSlice', () => {
       mockedLogin.mockRejectedValue(new Error('Invalid credentials'));
       const store = makeStore();
 
-      await store.dispatch(loginThunk({ email: 'bad@xpw2.com', password: 'wrong' }));
+      await store.dispatch(loginThunk({ email: 'bad@fitsync.com', password: 'wrong' }));
 
       const state = store.getState().auth;
       expect(state.isLoading).toBe(false);

@@ -49,11 +49,11 @@
     "react-native-web": "~0.21.0",
     "react-redux": "^9.2.0",
     "uuid": "^11.1.0",
-    "@xpw2/shared": "workspace:*",
-    "@xpw2/datasync": "workspace:*",
-    "@xpw2/nfc": "workspace:*",
-    "@xpw2/ble-scale": "workspace:*",
-    "@xpw2/ui": "workspace:*"
+    "@fitsync/shared": "workspace:*",
+    "@fitsync/datasync": "workspace:*",
+    "@fitsync/nfc": "workspace:*",
+    "@fitsync/ble-scale": "workspace:*",
+    "@fitsync/ui": "workspace:*"
   },
   "devDependencies": {
     "@storybook/addon-ondevice-actions": "^8.6.4",

@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
-import * as DataSync from '@xpw2/datasync';
-import type { MemberRecord } from '@xpw2/datasync';
+import * as DataSync from '@fitsync/datasync';
+import type { MemberRecord } from '@fitsync/datasync';
 import memberReducer, {
   registerMemberThunk,
   loadMembersThunk,

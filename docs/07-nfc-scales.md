@@ -6,86 +6,91 @@ Two hardware integrations enable fast member identification (NFC) and automated 
 
 ## NFC — Member Card Reader
 
-**Package:** `@xpw2/nfc` (`packages/nfc/`)  
+**Package:** `@fitsync/nfc` (`packages/nfc/`)  
 **Library:** `react-native-nfc-manager@3.15.0`
 
 ### Architecture
 
+The physical tag UID (hex string) **is** the member identifier — no NDEF payload parsing required.
+
 ```
-NFC Tag (NDEF)
+NFC Card (any type: NFC-A, NFC-B, ISO-DEP, MIFARE Classic)
    │
    ▼
-NfcReader.scanForMemberCard()    ← packages/nfc/src/NfcReader.ts
+NfcReader.scanTagId()            ← packages/nfc/src/NfcReader.ts
    │
    ▼
-parseNdefTextRecord()             ← packages/nfc/src/parser.ts
+tagIdToHex(tag.id)               ← packages/nfc/src/parser.ts
    │
    ▼
-{ memberId, name, nfcCardId }     ← NfcScanResult
+NfcTagIdResult { success, tagId }
    │
    ▼
-Redux: dispatch(identifyMember({ method: 'nfc', ... }))
+DataSync.getMemberByNfc(tagId)   → Member lookup in Room DB
    │
    ▼
-DataSync.recordEvent('MemberIdentified', payload)
+DataSync.recordEvent('MemberIdentified', { memberId, method: 'nfc', nfcCardId: tagId })
 ```
 
 ### Initialization
 
 ```typescript
-import { NfcReader } from '@xpw2/nfc';
+import { NfcReader } from '@fitsync/nfc';
 
 const nfc = new NfcReader();
 
 // Check support before any scan
 const { isSupported, isEnabled } = await nfc.getStatus();
 if (!isSupported) { /* show unsupported UI */ }
-if (!isEnabled)   { /* prompt user to enable NFC in settings */ }
+if (!isEnabled)   { /* Alert + deep-link to android.settings.NFC_SETTINGS */ }
 ```
 
 ### Scanning
 
 ```typescript
-const result = await nfc.scanForMemberCard();
+const result = await nfc.scanTagId();
+// → NfcTagIdResult { success: true, tagId: 'a1:b2:c3:d4' }
 
-if (result.success && result.memberData) {
-  dispatch(identifyMember({
-    memberId:   result.memberData.memberId,
-    method:     'nfc',
-    nfcCardId:  result.tagId,
-  }));
+if (result.success && result.tagId) {
+  const member = await DataSync.getMemberByNfc(result.tagId);
+  if (member) {
+    dispatch(identifyMemberByNfcThunk({ nfcCardId: result.tagId, sessionId }));
+  }
 } else {
-  // result.error contains the failure reason
+  // result.error — timeout, no tag detected, or NFC error
 }
 ```
 
-### NFC Tag Format
+### Tag ID Format
 
-Tags use **NDEF Text records** containing a JSON payload:
+The physical UID bytes are converted to a lowercase colon-separated hex string:
 
-```json
-{
-  "memberId": "m-uuid-here",
-  "name": "Jane Smith",
-  "membershipNumber": "XPW-00123"
-}
+```
+a1:b2:c3:d4        // 4-byte UID (NFC-A / MIFARE)
+a1:b2:c3:d4:e5:f6:07:08  // 7-byte UID (ISO-DEP / modern cards)
 ```
 
-The tag UID (`tagId`) is extracted as a hex string and stored as `nfcCardId` on the member record.
+This value is stored as `nfcCardId` on the `MemberRecord` in Room DB.
 
-### NDEF Parser (`packages/nfc/src/parser.ts`)
+### Registration
+
+During member registration, the same `scanTagId()` call is used to capture the card UID:
 
 ```typescript
-export function decodeNdefText(payload: number[]): string {
-  // NDEF Text Record format:
-  // byte[0]: status byte — bit 7 = UTF vs UTF-16, bits 5-0 = language code length
-  // byte[1..langLen]: language code (e.g., "en")
-  // remaining: actual text content
-  const statusByte = payload[0];
-  const langLen    = statusByte & 0x3f;
-  return String.fromCharCode(...payload.slice(1 + langLen));
-}
+const tagId = await nfc.scanTagId();
+// → store tagId in form, submit with MemberRegistered event
+DataSync.recordEvent('MemberRegistered', { memberId, name, nfcCardId: tagId.tagId });
 ```
+
+### React Hook
+
+```typescript
+const { status, isScanning, scanTagId, readTagId, cancel, refreshStatus } = useNfcReader();
+```
+
+- `scanTagId()` — with 30s timeout, returns `NfcTagIdResult` (use in screens)
+- `readTagId()` — raw, no timeout, returns `string | null` (use in forms)
+- `refreshStatus()` — re-check NFC enabled state (called on AppState foreground)
 
 ### Android Permissions
 
@@ -101,7 +106,7 @@ export function decodeNdefText(payload: number[]): string {
 
 ## BLE Scales
 
-**Package:** `@xpw2/ble-scale` (`packages/ble-scale/`)  
+**Package:** `@fitsync/ble-scale` (`packages/ble-scale/`)  
 **Library:** `react-native-ble-plx@3.2.1`
 
 ### Architecture

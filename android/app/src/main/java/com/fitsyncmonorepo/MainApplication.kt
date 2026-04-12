@@ -1,4 +1,4 @@
-package com.xpw2monorepo
+package com.fitsyncmonorepo
 
 import android.app.Application
 import android.content.res.Configuration

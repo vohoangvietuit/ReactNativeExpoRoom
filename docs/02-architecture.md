@@ -2,7 +2,7 @@
 
 ## Overview
 
-XPW2 is a four-layer, offline-first Android application. Every state change is recorded as an immutable event, stored locally in a SQLCipher-encrypted Room database, and eventually synchronized across devices and to the backend.
+FitSync is a four-layer, offline-first Android application. Every state change is recorded as an immutable event, stored locally in a SQLCipher-encrypted Room database, and eventually synchronized across devices and to the backend.
 
 ---
 
@@ -12,7 +12,7 @@ XPW2 is a four-layer, offline-first Android application. Every state change is r
 ┌─────────────────────────────────────────────────────────────────────┐
 │  Layer 1 — React Native UI                                          │
 │                                                                     │
-│  expo-router screens │ Redux Toolkit store │ @xpw2/ui components   │
+│  expo-router screens │ Redux Toolkit store │ @fitsync/ui components   │
 │  Feature-first: auth/ member/ session/ weigh/ devices/ todo/       │
 └───────────────────────────────┬─────────────────────────────────────┘
                                 │ useDispatch / useSelector
@@ -24,7 +24,7 @@ XPW2 is a four-layer, offline-first Android application. Every state change is r
 └───────────────────────────────┬─────────────────────────────────────┘
                                 │ Expo Modules API (JS ↔ Kotlin)
 ┌───────────────────────────────▼─────────────────────────────────────┐
-│  Layer 3 — Bridge Layer (@xpw2/datasync JS side)                   │
+│  Layer 3 — Bridge Layer (@fitsync/datasync JS side)                   │
 │                                                                     │
 │  requireNativeModule('ExpoDataSync')                               │
 │  AsyncFunction calls │ NativeEvent subscriptions                   │
@@ -110,7 +110,7 @@ ReactNativeExpoRoom/
 │           │   ├── weigh/         # Weight recording (BLE scales)
 │           │   ├── devices/       # Nearby device discovery
 │           │   └── todo/          # Session notes / tasks
-│           ├── components/        # Shared UI (uses @xpw2/ui)
+│           ├── components/        # Shared UI (uses @fitsync/ui)
 │           ├── navigation/        # Typed React Navigation params
 │           ├── hooks/             # Shared hooks
 │           ├── services/          # API client, storage

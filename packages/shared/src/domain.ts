@@ -1,5 +1,5 @@
 // ─── Domain Types ───────────────────────────────────────────────────────
-// Core business entities for the XPW2 application.
+// Core business entities for the FitSync application.
 
 // ─── Member ─────────────────────────────────────────────────────────────
 export interface Member {

@@ -1,6 +1,6 @@
 # 03 — DataSync Module
 
-The `@xpw2/datasync` package is the heart of the application. It wraps an SQLCipher-encrypted Room database and exposes its functionality to React Native via the Expo Modules API.
+The `@fitsync/datasync` package is the heart of the application. It wraps an SQLCipher-encrypted Room database and exposes its functionality to React Native via the Expo Modules API.
 
 ---
 
@@ -25,7 +25,9 @@ packages/datasync/
     │   ├── NearbyManager.kt         # Google Nearby Connections
     │   └── NearbyPayloadHandler.kt  # Payload serialization
     └── worker/
-        └── SyncScheduler.kt         # WorkManager scheduling
+        ├── BackendSyncWorker.kt    # WorkManager worker for backend HTTP sync
+        ├── DeviceSyncWorker.kt     # WorkManager worker for device-to-device sync
+        └── SyncScheduler.kt        # WorkManager scheduling
 ```
 
 ---
@@ -60,13 +62,13 @@ Room uses a custom `SupportFactory` to open the database with a per-device passp
 val passphrase = KeystoreHelper.getOrCreatePassphrase(context)
 val factory = SupportFactory(passphrase)
 
-Room.databaseBuilder(context, AppDatabase::class.java, "xpw2.db")
+Room.databaseBuilder(context, AppDatabase::class.java, "fitsync.db")
     .openHelperFactory(factory)
     .fallbackToDestructiveMigration()
     .build()
 ```
 
-The database file `xpw2.db` is AES-256 encrypted at rest. Without the passphrase, the file is unreadable.
+The database file `fitsync.db` is AES-256 encrypted at rest. Without the passphrase, the file is unreadable.
 
 ---
 
@@ -81,7 +83,7 @@ object KeystoreHelper {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
-        val prefs = EncryptedSharedPreferences.create(context, "xpw2_secure_prefs", masterKey, ...)
+        val prefs = EncryptedSharedPreferences.create(context, "fitsync_secure_prefs", masterKey, ...)
 
         // 2. Return existing passphrase or generate a new 32-byte random one
         val existing = prefs.getString("db_passphrase", null)
@@ -96,6 +98,7 @@ object KeystoreHelper {
 ```
 
 **Key properties:**
+
 - Passphrase generated once per device, stored encrypted
 - Backed by the Android Keystore hardware security module
 - Never leaves device memory in plaintext
@@ -235,13 +238,13 @@ const ExpoDataSync = requireNativeModule('ExpoDataSync');
 
 export async function recordEvent(
   eventType: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
 ): Promise<{ eventId: string; occurredAt: number }> {
   return ExpoDataSync.recordEvent(eventType, JSON.stringify(payload));
 }
 
 export function addSyncStatusListener(
-  listener: (event: SyncStatusEvent) => void
+  listener: (event: SyncStatusEvent) => void,
 ): EventSubscription {
   return ExpoDataSync.addListener('onSyncStatusChanged', listener);
 }

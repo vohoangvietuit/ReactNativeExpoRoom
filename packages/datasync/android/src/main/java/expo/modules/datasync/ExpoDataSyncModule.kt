@@ -87,17 +87,65 @@ class ExpoDataSyncModule : Module() {
             }
         }
 
-        manager.onConnectionChanged = { endpointId, connected ->
-            sendEvent("onDeviceConnectionChanged", mapOf(
+        manager.onConnectionRequest = { endpointId, endpointName, remoteDeviceId, authDigits, isIncoming ->
+            sendEvent("onConnectionRequest", mapOf(
                 "endpointId" to endpointId,
-                "connected" to connected
+                "endpointName" to endpointName,
+                "remoteDeviceId" to (remoteDeviceId ?: ""),
+                "authenticationDigits" to authDigits,
+                "isIncoming" to isIncoming
             ))
+        }
+
+        manager.onConnectionChanged = { endpointId, connected ->
+            // All DB work + event emission happen in the same coroutine so that
+            // JS receives onDeviceConnectionChanged only AFTER the DB write completes.
+            // This prevents the race where loadPairedDevicesThunk() runs before upsertDevice().
+            scope.launch {
+                if (connected) {
+                    val endpoint = manager.connectedEndpoints.value
+                        .find { it.endpointId == endpointId }
+                    val name = endpoint?.endpointName ?: endpointId
+                    val remoteDeviceId = endpoint?.remoteDeviceId
+                    // Lookup order: remoteDeviceId (stable) → endpointId → name (fallback)
+                    val existing = remoteDeviceId?.let { engine.getDevice(it) }
+                        ?: engine.getDeviceByEndpoint(endpointId)
+                        ?: engine.getPairedDeviceByName(name)
+                    val device = existing?.copy(
+                        nearbyEndpointId = endpointId,
+                        deviceName = name,
+                        connectionStatus = "connected",
+                        lastSeenAt = System.currentTimeMillis(),
+                        isPaired = true
+                    ) ?: expo.modules.datasync.db.entities.DeviceEntity(
+                        id = remoteDeviceId ?: java.util.UUID.randomUUID().toString(),
+                        deviceName = name,
+                        nearbyEndpointId = endpointId,
+                        role = "combined",
+                        connectionStatus = "connected",
+                        lastSeenAt = System.currentTimeMillis(),
+                        isPaired = true
+                    )
+                    engine.upsertDevice(device)
+                } else {
+                    val existing = engine.getDeviceByEndpoint(endpointId)
+                    if (existing != null) {
+                        engine.updateDeviceStatus(existing.id, "disconnected")
+                    }
+                }
+                // Fire AFTER the DB write — JS now reads fresh paired device state
+                sendEvent("onDeviceConnectionChanged", mapOf(
+                    "endpointId" to endpointId,
+                    "connected" to connected
+                ))
+            }
         }
 
         manager.onEndpointDiscovered = { endpoint ->
             sendEvent("onDeviceFound", mapOf(
                 "endpointId" to endpoint.endpointId,
                 "endpointName" to endpoint.endpointName,
+                "remoteDeviceId" to (endpoint.remoteDeviceId ?: ""),
                 "serviceId" to endpoint.serviceId
             ))
         }
@@ -117,7 +165,8 @@ class ExpoDataSyncModule : Module() {
             "onSyncStatusChanged",
             "onDeviceFound",
             "onDeviceLost",
-            "onDeviceConnectionChanged"
+            "onDeviceConnectionChanged",
+            "onConnectionRequest"
         )
 
         // ─── Event Recording ────────────────────────────────────────────
@@ -171,8 +220,16 @@ class ExpoDataSyncModule : Module() {
         // ─── Outbox ─────────────────────────────────────────────────────
 
         AsyncFunction("triggerSync") Coroutine { ->
+            val before = engine.getSyncCounts()
+            val pendingBefore = before.pendingCount
             eventOutbox.processNow()
-            "ok"
+            val after = engine.getSyncCounts()
+            val sent = pendingBefore - after.pendingCount
+            when {
+                pendingBefore == 0 -> "No pending events to sync"
+                sent > 0 -> "Sent $sent event(s) to connected device(s)"
+                else -> "Sync attempted — $pendingBefore event(s) still pending (no connected device?)"
+            }
         }
 
         AsyncFunction("triggerBackendSync") {
@@ -198,7 +255,8 @@ class ExpoDataSyncModule : Module() {
         // ─── Nearby Connections ─────────────────────────────────────────
 
         AsyncFunction("startAdvertising") { deviceName: String ->
-            nearbyManager.startAdvertising(deviceName)
+            val encodedName = "$deviceName|${getDeviceId()}"
+            nearbyManager.startAdvertising(encodedName)
             "ok"
         }
 
@@ -218,7 +276,18 @@ class ExpoDataSyncModule : Module() {
         }
 
         AsyncFunction("connectToDevice") { deviceName: String, endpointId: String ->
-            nearbyManager.requestConnection(deviceName, endpointId)
+            val encodedName = "$deviceName|${getDeviceId()}"
+            nearbyManager.requestConnection(encodedName, endpointId)
+            "ok"
+        }
+
+        AsyncFunction("acceptConnection") { endpointId: String ->
+            nearbyManager.acceptConnection(endpointId)
+            "ok"
+        }
+
+        AsyncFunction("rejectConnection") { endpointId: String ->
+            nearbyManager.rejectConnection(endpointId)
             "ok"
         }
 
@@ -237,6 +306,7 @@ class ExpoDataSyncModule : Module() {
                 mapOf(
                     "endpointId" to endpoint.endpointId,
                     "endpointName" to endpoint.endpointName,
+                    "remoteDeviceId" to (endpoint.remoteDeviceId ?: ""),
                     "serviceId" to endpoint.serviceId
                 )
             }
@@ -246,7 +316,8 @@ class ExpoDataSyncModule : Module() {
             nearbyManager.connectedEndpoints.value.map { endpoint ->
                 mapOf(
                     "endpointId" to endpoint.endpointId,
-                    "endpointName" to endpoint.endpointName
+                    "endpointName" to endpoint.endpointName,
+                    "remoteDeviceId" to (endpoint.remoteDeviceId ?: "")
                 )
             }
         }
@@ -343,6 +414,23 @@ class ExpoDataSyncModule : Module() {
             engine.getPairedDevices().map { it.toMap() }
         }
 
+        AsyncFunction("removePairedDevice") Coroutine { deviceId: String ->
+            engine.getDevice(deviceId)?.let { device ->
+                if (device.connectionStatus == "connected" && device.nearbyEndpointId != null) {
+                    nearbyManager.disconnect(device.nearbyEndpointId!!)
+                }
+            }
+            engine.deleteDevice(deviceId)
+            "ok"
+        }
+
+        AsyncFunction("unpairDevice") Coroutine { deviceId: String ->
+            engine.getDevice(deviceId)?.let { device ->
+                engine.upsertDevice(device.copy(isPaired = false))
+            }
+            "ok"
+        }
+
         // ─── Device Info ────────────────────────────────────────────────
 
         AsyncFunction("getDeviceId") {
@@ -350,7 +438,15 @@ class ExpoDataSyncModule : Module() {
         }
 
         AsyncFunction("getDeviceName") {
-            Build.MODEL ?: "Unknown Device"
+            val context = appContext.reactContext
+
+            val deviceName = try {
+                Settings.Global.getString(context?.contentResolver, "device_name")
+                    ?: Settings.Secure.getString(context?.contentResolver, "bluetooth_name")
+            } catch (e: Exception) {
+                null
+            }
+            deviceName ?: Build.MODEL ?: "Unknown Device"
         }
 
         // ─── Outbox Management ──────────────────────────────────────────

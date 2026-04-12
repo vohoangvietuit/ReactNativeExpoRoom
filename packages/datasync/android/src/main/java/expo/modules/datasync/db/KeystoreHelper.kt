@@ -14,7 +14,7 @@ import android.util.Base64
  */
 object KeystoreHelper {
 
-    private const val PREFS_FILE = "xpw2_secure_prefs"
+    private const val PREFS_FILE = "fitsync_secure_prefs"
     private const val KEY_DB_PASSPHRASE = "db_passphrase"
     private const val PASSPHRASE_LENGTH = 32
 

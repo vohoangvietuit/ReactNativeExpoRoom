@@ -6,7 +6,7 @@
 
 ## 1. What This Is
 
-**XPW2** — an offline-first Android tablet app built as a **pnpm + Turborepo monorepo**.
+**FitSync** — an offline-first Android tablet app built as a **pnpm + Turborepo monorepo**.
 
 | Layer | Tech |
 |---|---|
@@ -195,7 +195,7 @@ npx create-expo-app . --template blank-typescript
 mkdir -p packages/shared/src
 # packages/shared/package.json
 {
-  "name": "@xpw2/shared",
+  "name": "@fitsync/shared",
   "main": "src/index.ts",
   "types": "src/index.ts"
 }
@@ -214,9 +214,9 @@ This generates the Kotlin stubs. Add Room to its `build.gradle` (see §4 table a
 ```json
 // apps/mobile/package.json
 "dependencies": {
-  "@xpw2/shared":   "workspace:*",
-  "@xpw2/datasync": "workspace:*",
-  "@xpw2/ui":       "workspace:*"
+  "@fitsync/shared":   "workspace:*",
+  "@fitsync/datasync": "workspace:*",
+  "@fitsync/ui":       "workspace:*"
 }
 ```
 
@@ -242,7 +242,7 @@ pnpm init
 
 # Add to package.json manually:
 # {
-#   "name": "@xpw2/my-utils",
+#   "name": "@fitsync/my-utils",
 #   "main": "src/index.ts",
 #   "types": "src/index.ts"
 # }
@@ -260,7 +260,7 @@ cat > tsconfig.json << 'EOF'
 EOF
 
 touch src/index.ts
-pnpm install @xpw2/my-utils --workspace
+pnpm install @fitsync/my-utils --workspace
 ```
 
 ### B — Shared UI Components Package
@@ -272,7 +272,7 @@ pnpm init
 
 # Add to package.json:
 # {
-#   "name": "@xpw2/my-ui",
+#   "name": "@fitsync/my-ui",
 #   "main": "src/index.ts",
 #   "peerDependencies": {
 #     "react": ">=19.0.0",
@@ -364,9 +364,9 @@ EOF
 ```bash
 # 1. Add dependency to apps/mobile/package.json
 cd apps/mobile
-pnpm add @xpw2/my-utils --workspace
-pnpm add @xpw2/my-ui --workspace
-pnpm add @xpw2/my-datasync --workspace
+pnpm add @fitsync/my-utils --workspace
+pnpm add @fitsync/my-ui --workspace
+pnpm add @fitsync/my-datasync --workspace
 
 # 2. Reinstall monorepo
 pnpm install
@@ -448,14 +448,14 @@ sequenceDiagram
 
 ```
 packages/my-pkg/
-  package.json    ("name": "@xpw2/my-pkg", "main": "src/index.ts")
+  package.json    ("name": "@fitsync/my-pkg", "main": "src/index.ts")
   tsconfig.json   (extends ../../packages/tsconfig/base.json)
   src/index.ts
 ```
 
-1. Add `"@xpw2/my-pkg": "workspace:*"` to `apps/mobile/package.json`
+1. Add `"@fitsync/my-pkg": "workspace:*"` to `apps/mobile/package.json`
 2. `pnpm install`
-3. Import normally: `import { } from '@xpw2/my-pkg'`
+3. Import normally: `import { } from '@fitsync/my-pkg'`
 
 ### B — Android Expo Module package (with Room / Kotlin)
 

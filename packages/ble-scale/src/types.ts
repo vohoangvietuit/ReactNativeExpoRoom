@@ -20,3 +20,13 @@ export interface ScaleStatus {
   connectedDevice: ScaleDevice | null;
   lastReading: ScaleReading | null;
 }
+
+/** Raw BLE advertisement — no filtering. Used for dev/debug scanning. */
+export interface RawBleDevice {
+  id: string;
+  name: string | null;
+  rssi: number | null;
+  isConnectable: boolean | null;
+  serviceUUIDs: string[] | null;
+  manufacturerData: string | null;
+}

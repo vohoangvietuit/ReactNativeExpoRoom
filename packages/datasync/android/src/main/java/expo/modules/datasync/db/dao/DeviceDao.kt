@@ -18,6 +18,9 @@ interface DeviceDao {
     @Query("SELECT * FROM devices WHERE nearby_endpoint_id = :endpointId")
     suspend fun getByEndpointId(endpointId: String): DeviceEntity?
 
+    @Query("SELECT * FROM devices WHERE device_name = :name AND is_paired = 1 ORDER BY last_seen_at DESC LIMIT 1")
+    suspend fun getPairedByName(name: String): DeviceEntity?
+
     @Query("SELECT * FROM devices WHERE is_paired = 1")
     suspend fun getPairedDevices(): List<DeviceEntity>
 

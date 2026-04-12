@@ -1,4 +1,4 @@
-package com.xpw2monorepo
+package com.fitsyncmonorepo
 
 import android.os.Build
 import android.os.Bundle

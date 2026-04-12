@@ -1,6 +1,6 @@
-# XPW2 — Project Reference
+# FitSync — Project Reference
 
-Full technical reference for the XPW2 offline-first event-driven body management app.
+Full technical reference for the FitSync offline-first event-driven body management app.
 
 > For day-to-day commands see [README.md](../README.md). For a blog-style walkthrough see [GUIDE.md](./GUIDE.md).
 
@@ -8,7 +8,7 @@ Full technical reference for the XPW2 offline-first event-driven body management
 
 ## App Overview
 
-XPW2 is an enterprise-grade Android tablet app for group fitness/wellness sessions. Key capabilities:
+FitSync is an enterprise-grade Android tablet app for group fitness/wellness sessions. Key capabilities:
 
 - **Event-Driven Architecture** — All state changes are immutable events stored in Room DB
 - **Offline-First** — Full functionality without internet; syncs automatically when connected
@@ -26,7 +26,7 @@ XPW2 is an enterprise-grade Android tablet app for group fitness/wellness sessio
 
 Open the app and sign in. For local development use:
 
-- **Email:** `test@xpw2.com`
+- **Email:** `test@fitsync.com`
 - **Password:** `password`
 
 Your session token is stored securely in Android Keystore via `expo-secure-store` and restored automatically on app restart.
@@ -339,4 +339,4 @@ reactNativeArchitectures=arm64-v8a
 
 **Target Device:** Samsung S25 Ultra (arm64-v8a)  
 **Build Status:** ✅ Android APK builds successfully (~82 MB, ~3m 32s)  
-**License:** Proprietary — XPW2 Fitness Solutions
+**License:** Proprietary — FitSync Fitness Solutions

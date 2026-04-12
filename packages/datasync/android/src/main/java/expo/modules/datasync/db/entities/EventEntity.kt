@@ -5,7 +5,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * Immutable event record. All state changes in XPW2 are recorded as events.
+ * Immutable event record. All state changes in FitSync are recorded as events.
  * Events are stored locally and processed by the DataSync engine.
  */
 @Entity(tableName = "events")

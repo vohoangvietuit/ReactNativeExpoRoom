@@ -41,7 +41,7 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        private const val DATABASE_NAME = "xpw2.db"
+        private const val DATABASE_NAME = "fitsync.db"
 
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {

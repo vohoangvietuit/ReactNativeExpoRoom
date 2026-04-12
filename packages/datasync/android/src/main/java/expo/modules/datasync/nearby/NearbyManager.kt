@@ -20,7 +20,7 @@ class NearbyManager(private val context: Context) {
 
     companion object {
         private const val TAG = "NearbyManager"
-        const val SERVICE_ID = "com.xpw2.datasync"
+        const val SERVICE_ID = "com.fitsync.datasync"
         private const val MAX_PAYLOAD_BYTES = 32 * 1024 // 32KB
     }
 
@@ -33,12 +33,20 @@ class NearbyManager(private val context: Context) {
     data class DiscoveredEndpoint(
         val endpointId: String,
         val endpointName: String,
+        val remoteDeviceId: String? = null,
         val serviceId: String
     )
 
     data class ConnectedEndpoint(
         val endpointId: String,
-        val endpointName: String
+        val endpointName: String,
+        val remoteDeviceId: String? = null
+    )
+
+    data class PendingConnection(
+        val displayName: String,
+        val remoteDeviceId: String?,
+        val authDigits: String
     )
 
     private val _isAdvertising = MutableStateFlow(false)
@@ -53,11 +61,30 @@ class NearbyManager(private val context: Context) {
     private val _connectedEndpoints = MutableStateFlow<List<ConnectedEndpoint>>(emptyList())
     val connectedEndpoints: StateFlow<List<ConnectedEndpoint>> = _connectedEndpoints.asStateFlow()
 
+    // Stores parsed connection info from onConnectionInitiated, keyed by endpointId.
+    // Needed because the advertiser (Phone B) does NOT have the initiator (Phone A)
+    // in _discoveredEndpoints, so onConnectionResult would fall back to raw endpointId.
+    private val pendingConnections = mutableMapOf<String, PendingConnection>()
+
     // Callback interface for payload and connection events
     var onPayloadReceived: ((endpointId: String, data: ByteArray) -> Unit)? = null
     var onConnectionChanged: ((endpointId: String, connected: Boolean) -> Unit)? = null
     var onEndpointDiscovered: ((endpoint: DiscoveredEndpoint) -> Unit)? = null
     var onEndpointLost: ((endpointId: String) -> Unit)? = null
+    var onConnectionRequest: ((endpointId: String, endpointName: String, remoteDeviceId: String?, authenticationDigits: String, isIncoming: Boolean) -> Unit)? = null
+
+    /**
+     * Parse encoded Nearby name: "DisplayName|androidId" → (displayName, androidId)
+     * Backward-compatible: "DisplayName" → (displayName, null)
+     */
+    private fun parseNearbyName(raw: String): Pair<String, String?> {
+        val separatorIndex = raw.lastIndexOf('|')
+        return if (separatorIndex > 0) {
+            Pair(raw.substring(0, separatorIndex), raw.substring(separatorIndex + 1))
+        } else {
+            Pair(raw, null)
+        }
+    }
 
     // ─── Advertising ────────────────────────────────────────────────────
 
@@ -189,10 +216,12 @@ class NearbyManager(private val context: Context) {
 
     private val endpointDiscoveryCallback = object : EndpointDiscoveryCallback() {
         override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
-            Log.d(TAG, "Endpoint found: $endpointId (${info.endpointName})")
+            val (displayName, remoteDeviceId) = parseNearbyName(info.endpointName)
+            Log.d(TAG, "Endpoint found: $endpointId ($displayName, remoteId=$remoteDeviceId)")
             val endpoint = DiscoveredEndpoint(
                 endpointId = endpointId,
-                endpointName = info.endpointName,
+                endpointName = displayName,
+                remoteDeviceId = remoteDeviceId,
                 serviceId = info.serviceId
             )
             val current = _discoveredEndpoints.value.toMutableList()
@@ -213,24 +242,45 @@ class NearbyManager(private val context: Context) {
 
     private val connectionLifecycleCallback = object : ConnectionLifecycleCallback() {
         override fun onConnectionInitiated(endpointId: String, info: ConnectionInfo) {
-            Log.d(TAG, "Connection initiated with $endpointId (${info.endpointName})")
-            // Auto-accept all connections (for P2P trusted environment)
-            connectionsClient.acceptConnection(endpointId, payloadCallback)
+            val (displayName, remoteDeviceId) = parseNearbyName(info.endpointName)
+            val isIncoming = info.isIncomingConnection
+            Log.d(TAG, "Connection initiated with $endpointId ($displayName, remoteId=$remoteDeviceId, incoming=$isIncoming, authDigits=${info.authenticationDigits})")
+            pendingConnections[endpointId] = PendingConnection(displayName, remoteDeviceId, info.authenticationDigits)
+
+            // BOTH phones show the verification code, but with different UI:
+            // - Phone B (responder, isIncoming=true):  shows Accept/Reject buttons
+            // - Phone A (initiator, isIncoming=false): shows passive read-only view
+            // JS layer uses isIncoming to differentiate the UX.
+            onConnectionRequest?.invoke(endpointId, displayName, remoteDeviceId, info.authenticationDigits, isIncoming)
         }
 
         override fun onConnectionResult(endpointId: String, result: ConnectionResolution) {
             when (result.status.statusCode) {
                 ConnectionsStatusCodes.STATUS_OK -> {
-                    Log.d(TAG, "Connected to $endpointId")
-                    val name = _discoveredEndpoints.value
-                        .find { it.endpointId == endpointId }?.endpointName ?: endpointId
-                    val current = _connectedEndpoints.value.toMutableList()
-                    current.removeAll { it.endpointId == endpointId }
-                    current.add(ConnectedEndpoint(endpointId, name))
-                    _connectedEndpoints.value = current
+                    // Resolve name + remoteDeviceId from pending → discovered → fallback
+                    val pending = pendingConnections.remove(endpointId)
+                    val discoveredEntry = _discoveredEndpoints.value
+                        .find { it.endpointId == endpointId }
+                    val name = pending?.displayName
+                        ?: discoveredEntry?.endpointName
+                        ?: endpointId
+                    val remoteDeviceId = pending?.remoteDeviceId
+                        ?: discoveredEntry?.remoteDeviceId
+                    Log.d(TAG, "Connected to $endpointId ($name, remoteId=$remoteDeviceId)")
+
+                    // Move from discovered → connected (no duplicates by endpointId or name)
+                    val discovered = _discoveredEndpoints.value.toMutableList()
+                    discovered.removeAll { it.endpointId == endpointId }
+                    _discoveredEndpoints.value = discovered
+
+                    val connected = _connectedEndpoints.value.toMutableList()
+                    connected.removeAll { it.endpointId == endpointId || it.endpointName == name }
+                    connected.add(ConnectedEndpoint(endpointId, name, remoteDeviceId))
+                    _connectedEndpoints.value = connected
                     onConnectionChanged?.invoke(endpointId, true)
                 }
                 else -> {
+                    pendingConnections.remove(endpointId)
                     Log.w(TAG, "Connection failed to $endpointId: ${result.status}")
                     onConnectionChanged?.invoke(endpointId, false)
                 }
@@ -238,6 +288,7 @@ class NearbyManager(private val context: Context) {
         }
 
         override fun onDisconnected(endpointId: String) {
+            pendingConnections.remove(endpointId)
             Log.d(TAG, "Disconnected from $endpointId")
             val current = _connectedEndpoints.value.toMutableList()
             current.removeAll { it.endpointId == endpointId }
@@ -257,6 +308,19 @@ class NearbyManager(private val context: Context) {
         override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {
             // For BYTES payloads, transfer is immediate
         }
+    }
+
+    // ─── Accept / Reject Connection ──────────────────────────────────────
+
+    fun acceptConnection(endpointId: String) {
+        connectionsClient.acceptConnection(endpointId, payloadCallback)
+        Log.d(TAG, "Accepted connection: $endpointId")
+    }
+
+    fun rejectConnection(endpointId: String) {
+        connectionsClient.rejectConnection(endpointId)
+        pendingConnections.remove(endpointId)
+        Log.d(TAG, "Rejected connection: $endpointId")
     }
 
     // ─── Lifecycle ──────────────────────────────────────────────────────

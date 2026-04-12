@@ -6,4 +6,4 @@ export {
   WEIGHT_MEASUREMENT_CHAR_UUID,
 } from './weightParser';
 export { useScaleWeight } from './hooks/useScaleWeight';
-export type { ScaleReading, ScaleDevice, ScaleStatus } from './types';
+export type { ScaleReading, ScaleDevice, ScaleStatus, RawBleDevice } from './types';
