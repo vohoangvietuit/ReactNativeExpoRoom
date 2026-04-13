@@ -10,7 +10,9 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "clean": "turbo run clean",
-    "storybook": "pnpm --filter @fitsync/ui storybook"
+    "storybook": "pnpm --filter @fitsync/ui storybook",
+    "storybook:mobile": "pnpm --filter mobile storybook:android",
+    "storybook:generate": "pnpm --filter mobile storybook:generate"
   },
   "devDependencies": {
     "turbo": "^2.5.0",
@@ -26,7 +28,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "expo": "~55.0.11",
+    "expo": "~55.0.14",
     "react": "19.2.0",
     "react-native": "0.83.4"
   }
