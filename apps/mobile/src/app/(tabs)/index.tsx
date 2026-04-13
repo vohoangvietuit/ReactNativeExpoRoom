@@ -10,6 +10,7 @@ import {
   Linking,
 } from 'react-native';
 import { useNfcReader } from '@fitsync/nfc';
+import { Colors, FontSize, Spacing, BorderRadius } from '@/constants/theme';
 
 // DEV TESTING: Dedicated NFC scan test screen.
 // Shows raw JSON result on-screen after every scan attempt.
@@ -63,7 +64,7 @@ export default function NfcTestTab() {
       >
         {isScanning ? (
           <View style={styles.scanningRow}>
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={Colors.light.textOnPrimary} />
             <Text style={styles.scanButtonText}> Scanning... Tap to Cancel</Text>
           </View>
         ) : (
@@ -98,103 +99,102 @@ export default function NfcTestTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.light.surface,
   },
   content: {
-    padding: 16,
+    padding: Spacing.three,
   },
   header: {
-    fontSize: 24,
+    fontSize: FontSize.xxl,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: Spacing.three,
   },
   statusCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    backgroundColor: Colors.light.card,
+    borderRadius: BorderRadius.lg,
     padding: 14,
-    marginBottom: 16,
+    marginBottom: Spacing.three,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: Spacing.two,
     alignItems: 'center',
   },
   statusLabel: {
-    fontSize: 14,
-    color: '#555',
+    fontSize: FontSize.body,
+    color: Colors.light.textTertiary,
   },
   statusValue: {
-    fontSize: 14,
+    fontSize: FontSize.body,
     fontWeight: '700',
     marginRight: 12,
   },
-  ok: { color: '#28a745' },
-  err: { color: '#dc3545' },
+  ok: { color: Colors.light.success },
+  err: { color: Colors.light.danger },
   scanButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 10,
-    padding: 16,
+    backgroundColor: Colors.light.primary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.three,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.three,
   },
   scanningButton: {
-    backgroundColor: '#ff9500',
+    backgroundColor: Colors.light.warning,
   },
   scanningRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   scanButtonText: {
-    color: '#fff',
-    fontSize: 18,
+    color: Colors.light.textOnPrimary,
+    fontSize: FontSize.lg,
     fontWeight: '700',
   },
   logCard: {
-    backgroundColor: '#1e1e1e',
-    borderRadius: 10,
+    backgroundColor: Colors.light.darkPanel,
+    borderRadius: BorderRadius.lg,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: Spacing.three,
   },
   logHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: Spacing.two,
+    gap: Spacing.two,
     flexWrap: 'wrap',
   },
   logTitle: {
-    color: '#fff',
+    color: Colors.light.textOnPrimary,
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: FontSize.body,
     flex: 1,
   },
   logTime: {
-    color: '#aaa',
-    fontSize: 11,
+    color: Colors.light.textMuted,
+    fontSize: FontSize.xs,
   },
   clearButton: {
-    color: '#ff6b6b',
-    fontSize: 13,
+    color: Colors.light.danger,
+    fontSize: FontSize.caption,
     fontWeight: '600',
   },
   logScroll: {
     maxHeight: 400,
   },
   logText: {
-    color: '#4ec9b0',
+    color: Colors.light.teal,
     fontFamily: 'monospace',
-    fontSize: 12,
+    fontSize: FontSize.sm,
     lineHeight: 18,
   },
   emptyLog: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 24,
+    backgroundColor: Colors.light.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.four,
     alignItems: 'center',
   },
   emptyLogText: {
-    color: '#999',
+    color: Colors.light.textMuted,
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: FontSize.body,
   },
 });
-

@@ -1,507 +1,830 @@
-# pnpm Monorepo · Expo React Native + Android Room DB — Quick Start
+# pnpm Monorepo · Create from Scratch Guide
 
-> For new devs: understand the project layout, data flow, and how to plug in a new Android or JS package in minutes.
+> Step-by-step guide to building this exact monorepo pattern. Covers every CLI command, every manual config file, and how all the pieces connect.
 
 ---
 
-## 1. What This Is
+## 1. What This Monorepo Contains
 
 **FitSync** — an offline-first Android tablet app built as a **pnpm + Turborepo monorepo**.
 
-| Layer | Tech |
-|---|---|
-| JS / React Native | Expo · expo-router · Redux Toolkit · TypeScript |
+| Layer                | Tech                                               |
+| -------------------- | -------------------------------------------------- |
+| JS / React Native    | Expo · expo-router · Redux Toolkit · TypeScript    |
 | Bridge (JS ↔ Kotlin) | Expo Modules API (`AsyncFunction … Coroutine { }`) |
-| Native Android | Room 2.7.1 · SQLCipher · WorkManager · Nearby |
+| Native Android       | Room 2.7.1 · SQLCipher · WorkManager · Nearby      |
 
 ---
 
-## 2. Repo Structure (30-second scan)
+## 2. Repo Structure
 
 ```
 ReactNativeExpoRoom/
 ├── apps/
-│   └── mobile/          ← Expo app (screens, Redux, navigation)
+│   └── mobile/          ← Expo RN app (screens, Redux, navigation)
 │       ├── src/
 │       │   ├── app/         expo-router routes
 │       │   ├── features/    feature-first: auth/ session/ member/ …
 │       │   ├── store/       Redux slices
-│       │   └── components/  shared UI
+│       │   └── components/  shared UI re-exports
 │       └── plugins/
-│           └── withKspPlugin.js   ← injects KSP classpath at prebuild
+│           └── withKspPlugin.js   ← Expo config plugin: injects KSP at prebuild
 │
 ├── packages/
-│   ├── datasync/        ← Expo Module (Kotlin Room core)
-│   │   ├── android/     ← Room entities, DAOs, WorkManager, Nearby
-│   │   └── src/         ← TS types + JS exports
-│   ├── shared/          ← pure TS: domain types, event definitions
-│   ├── nfc/             ← NFC reader Expo Module
-│   ├── ble-scale/       ← BLE scale Expo Module
-│   └── ui/              ← shared React Native components
+│   ├── tsconfig/        ← Shared TypeScript configs (base.json, react-native.json)
+│   ├── shared/          ← Pure TS: domain types, event definitions, constants
+│   ├── ui/              ← Shared React Native component library + theme tokens
+│   ├── datasync/        ← Expo Module (Kotlin + Room + WorkManager + Nearby)
+│   ├── nfc/             ← Expo Module (NFC card reader)
+│   └── ble-scale/       ← Expo Module (BLE weight scale reader)
 │
-├── pnpm-workspace.yaml  ← declares all packages as workspaces
-└── turbo.json           ← Turborepo pipeline (build → test)
+├── .npmrc               ← node-linker=hoisted (required for React Native)
+├── pnpm-workspace.yaml  ← declares apps/* and packages/* as workspaces
+└── turbo.json           ← Turborepo task pipeline
 ```
 
 ---
 
-## 3. Architecture Diagram
+## 3. CLI vs Manual — What Needs a Command vs What You Create By Hand
 
-```mermaid
-graph TD
-    subgraph "Layer 1 — React Native UI"
-        A[expo-router Screen]
-        B[Redux Slice / Thunk]
-    end
+> **The most important thing to understand before starting.** Only a handful of CLI tools exist. Almost all config files must be created manually.
 
-    subgraph "Layer 2 — Application Abstraction"
-        C[IDataRepository interface]
-        D[Feature flags]
-    end
+### What a CLI creates for you
 
-    subgraph "Layer 3 — Bridge  JS ↔ Kotlin"
-        E["ExpoDataSyncModule\n(Expo Modules API)"]
-        F["AsyncFunction('name') Coroutine { … }"]
-    end
+| Action                        | Command                                                    | What it generates                                                              |
+| ----------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Init root `package.json`      | `pnpm init`                                                | Bare `package.json` (you edit it)                                              |
+| Create a React Native app     | `npx create-expo-app@latest apps/mobile`                   | Full Expo app with `app.json`, dependencies, `src/`, metro config              |
+| Create an Expo Module package | `npx create-expo-module@latest packages/my-module --local` | Kotlin stub, `expo-module.config.json`, `src/index.ts`, `android/build.gradle` |
+| Init any package              | `pnpm init` (inside the package folder)                    | Bare `package.json` — nothing else                                             |
+| Add a dependency              | `pnpm add <pkg> --workspace`                               | Updates `package.json` only                                                    |
 
-    subgraph "Layer 4 — Native Core  Android"
-        G[DataSyncEngine]
-        H[(Room + SQLCipher\nEncrypted DB)]
-        I[WorkManager\nBackground Sync]
-        J[Nearby Connections\nP2P Sync]
-    end
+### What you must create manually (no CLI)
 
-    A -->|dispatch| B
-    B -->|call| C
-    C -->|JS bridge call| E
-    E --> F
-    F -->|suspend fun| G
-    G -->|read/write| H
-    G --> I
-    G --> J
-    I -->|outbox| H
-    J -->|peer payload| H
-```
+| File                                       | Where                | Purpose                                                       |
+| ------------------------------------------ | -------------------- | ------------------------------------------------------------- |
+| `pnpm-workspace.yaml`                      | root                 | Declares which folders are workspaces                         |
+| `.npmrc`                                   | root                 | `node-linker=hoisted` — required for Metro/RN                 |
+| `turbo.json`                               | root                 | Task pipeline (build → test → lint order)                     |
+| `packages/tsconfig/base.json`              | packages/tsconfig/   | Shared strict TS settings                                     |
+| `packages/tsconfig/react-native.json`      | packages/tsconfig/   | Adds JSX + RN types on top of base                            |
+| `packages/tsconfig/package.json`           | packages/tsconfig/   | Marks package as `@fitsync/tsconfig`                          |
+| `tsconfig.json` (per package)              | each package         | Extends `@fitsync/tsconfig/...`                               |
+| `tsconfig.json` (root)                     | root                 | Project references for IDE support                            |
+| `apps/mobile/plugins/withKspPlugin.js`     | apps/mobile/plugins/ | Expo config plugin — injects KSP classpath into Android build |
+| `expo-module.config.json` (edit after CLI) | each Expo module     | Points to the correct Kotlin class name                       |
+| `package.json` edits (peerDeps, exports)   | each package         | Manual after `pnpm init`                                      |
 
 ---
 
-## 4. Room DB — How It Is Wired
-
-```mermaid
-graph LR
-    subgraph "packages/datasync/android/"
-        EN[entities/\nEventEntity\nSessionEntity\nMemberEntity\n…]
-        DA[dao/\nEventDao\nSessionDao\n…]
-        DB[(AppDatabase\nRoom + SQLCipher)]
-        ENG[DataSyncEngine]
-        WM[WorkManager\nBackendSyncWorker\nDeviceSyncWorker]
-    end
-
-    subgraph "Expo Bridge"
-        MOD[ExpoDataSyncModule.kt]
-    end
-
-    subgraph "JS / React Native"
-        TS[packages/datasync/src/index.ts\nTypeScript API]
-        RN[apps/mobile feature hooks]
-    end
-
-    EN --> DB
-    DA --> DB
-    ENG --> DA
-    WM --> ENG
-    MOD --> ENG
-    TS -->|"DataSync.recordEvent()"| MOD
-    RN --> TS
-```
-
-### Key files
-
-| File | Purpose |
-|---|---|
-| `packages/datasync/android/src/.../ExpoDataSyncModule.kt` | Bridge: exposes suspend fns to JS |
-| `packages/datasync/android/src/.../engine/DataSyncEngine.kt` | Core logic: writes events to Room |
-| `packages/datasync/android/src/.../db/entities/` | Room `@Entity` data classes |
-| `packages/datasync/android/src/.../db/dao/` | Room `@Dao` query interfaces |
-| `packages/datasync/android/src/.../worker/` | WorkManager background sync workers |
-| `packages/datasync/src/index.ts` | TypeScript wrapper (callable from RN) |
-| `apps/mobile/plugins/withKspPlugin.js` | Config plugin — injects KSP at `expo prebuild` |
-
----
-
-## 5. Build Flow
-
-```mermaid
-sequenceDiagram
-    participant Dev
-    participant pnpm
-    participant Expo
-    participant Gradle
-    participant Android
-
-    Dev->>pnpm: pnpm install
-    pnpm-->>Dev: all workspaces linked
-
-    Dev->>Expo: npx expo prebuild --platform android
-    Note over Expo: withKspPlugin.js runs here,<br/>injects KSP + serialization classpath
-    Expo-->>Dev: apps/mobile/android/ generated
-
-    Dev->>Gradle: cd apps/mobile/android && ./gradlew assembleDebug
-    Gradle-->>Android: .apk with Room, SQLCipher, Nearby
-```
-
----
-
-## 6. pnpm Workspace Setup (from scratch)
-
-### Step 1 — Scaffold
+## 4. Phase 1 — Root Scaffold
 
 ```bash
-mkdir my-app && cd my-app
+mkdir my-monorepo && cd my-monorepo
 pnpm init
 ```
 
-### Step 2 — `pnpm-workspace.yaml`
+Then create these 3 files by hand:
+
+**`pnpm-workspace.yaml`** — tells pnpm which folders contain packages:
 
 ```yaml
 packages:
-  - "apps/*"
-  - "packages/*"
+  - 'apps/*'
+  - 'packages/*'
 ```
 
-### Step 3 — `turbo.json`
+**`.npmrc`** — required so Metro bundler can find `react-native` at the root `node_modules/`:
+
+```
+node-linker=hoisted
+```
+
+**`turbo.json`** — defines task cascade order across all packages:
 
 ```json
 {
-  "pipeline": {
-    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
-    "test":  { "dependsOn": ["build"] },
-    "lint":  {}
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["build/**", "dist/**"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "dev": {
+      "persistent": true,
+      "cache": false
+    }
   }
 }
 ```
 
-### Step 4 — Create the Expo app
-
-```bash
-mkdir -p apps/mobile
-cd apps/mobile
-npx create-expo-app . --template blank-typescript
-```
-
-### Step 5 — Create a shared TS package
-
-```bash
-mkdir -p packages/shared/src
-# packages/shared/package.json
-{
-  "name": "@fitsync/shared",
-  "main": "src/index.ts",
-  "types": "src/index.ts"
-}
-```
-
-### Step 6 — Create an Expo Module package (Android)
-
-```bash
-npx create-expo-module packages/datasync --local
-```
-
-This generates the Kotlin stubs. Add Room to its `build.gradle` (see §4 table above).
-
-### Step 7 — Link workspace packages in the mobile app
+Edit **root `package.json`** to add Turborepo, shared devDependencies, and resolution overrides:
 
 ```json
-// apps/mobile/package.json
-"dependencies": {
-  "@fitsync/shared":   "workspace:*",
-  "@fitsync/datasync": "workspace:*",
-  "@fitsync/ui":       "workspace:*"
+{
+  "name": "my-monorepo",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @myapp/mobile expo start",
+    "android": "pnpm --filter @myapp/mobile expo run:android",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "~5.8.3"
+  },
+  "resolutions": {
+    "react": "19.2.0",
+    "react-native": "0.83.4"
+  },
+  "packageManager": "pnpm@10.20.0",
+  "engines": { "node": ">=20.0.0" }
+}
+```
+
+> **Why `resolutions`?** This pins `react` and `react-native` to one version across the entire monorepo. Without this, different packages can resolve different versions and cause runtime conflicts.
+
+---
+
+## 5. Phase 2 — Shared TypeScript Configs Package
+
+This package has no runtime code — it only provides `tsconfig` presets that all other packages extend. Create it **before** any other package, because every other `tsconfig.json` will reference it.
+
+```bash
+mkdir -p packages/tsconfig
+```
+
+Create these 3 files manually:
+
+**`packages/tsconfig/package.json`**:
+
+```json
+{
+  "name": "@myapp/tsconfig",
+  "version": "0.0.1",
+  "private": true,
+  "files": ["base.json", "react-native.json"]
+}
+```
+
+**`packages/tsconfig/base.json`** — strict TypeScript for pure TS packages:
+
+```json
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "target": "ESNext",
+    "lib": ["ESNext"]
+  }
+}
+```
+
+**`packages/tsconfig/react-native.json`** — extends base, adds JSX + React Native types:
+
+```json
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["react-native", "jest"],
+    "lib": ["ESNext"],
+    "module": "ESNext",
+    "target": "ESNext"
+  }
+}
+```
+
+No `pnpm install` needed yet — this package is simply referenced by path in other `tsconfig.json` files.
+
+---
+
+## 6. Phase 3 — Create the React Native App
+
+```bash
+npx create-expo-app@latest apps/mobile
+```
+
+This CLI generates the full Expo project. Then make these manual edits:
+
+**1. Rename it in `apps/mobile/package.json`:**
+
+```json
+{
+  "name": "@myapp/mobile",
+  ...
+}
+```
+
+**2. Remove Expo project init boilerplate** (not relevant to production):
+
+- `apps/mobile/scripts/reset-project.js` — delete it + remove the `"reset-project"` script entry
+- `apps/mobile/assets/images/expo-logo.png`, `react-logo.png`, etc. — replace with your own assets
+
+**3. Create `apps/mobile/tsconfig.json`** — extend the shared config:
+
+```json
+{
+  "extends": "@myapp/tsconfig/react-native.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.d.ts", "expo-env.d.ts"]
+}
+```
+
+**4. Create the root `tsconfig.json`** for IDE project references:
+
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/ui" },
+    { "path": "apps/mobile" }
+  ],
+  "files": []
+}
+```
+
+**5. Link workspace packages** — add to `apps/mobile/package.json` dependencies:
+
+```json
+{
+  "dependencies": {
+    "@myapp/shared": "workspace:*",
+    "@myapp/ui": "workspace:*",
+    "@myapp/datasync": "workspace:*"
+  }
 }
 ```
 
 ```bash
-pnpm install   # symlinks packages automatically
+# From the monorepo root — links all workspace packages
+pnpm install
 ```
 
 ---
 
-## 7. Quick Package Scaffolding Commands
+## 7. Phase 4 — Create a Pure TypeScript Package (`@myapp/shared`)
 
-Use these one-liners to create different types of packages in your monorepo.
-
-### A — Pure TypeScript Package (Utils, Types, Constants)
+Use this pattern for packages that contain only TypeScript — types, constants, utilities, event definitions. No native code, no JSX.
 
 ```bash
-# Create folder and package.json
-mkdir -p packages/my-utils/src
-cd packages/my-utils
-
-# Init with workspace scoping
+mkdir -p packages/shared/src
+cd packages/shared
 pnpm init
+```
 
-# Add to package.json manually:
-# {
-#   "name": "@fitsync/my-utils",
-#   "main": "src/index.ts",
-#   "types": "src/index.ts"
-# }
+**Manually edit `packages/shared/package.json`:**
 
-# Create tsconfig.json
-cat > tsconfig.json << 'EOF'
+```json
 {
-  "extends": "../../packages/tsconfig/base.json",
-  "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src"
+  "name": "@myapp/shared",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
   },
-  "include": ["src/**/*"]
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "test": "jest",
+    "clean": "rm -rf build"
+  },
+  "devDependencies": {
+    "@myapp/tsconfig": "workspace:*",
+    "@types/jest": "^29.5.14",
+    "typescript": "~5.8.3"
+  }
 }
-EOF
-
-touch src/index.ts
-pnpm install @fitsync/my-utils --workspace
 ```
 
-### B — Shared UI Components Package
+**Create `packages/shared/tsconfig.json`:**
+
+```json
+{
+  "extends": "@myapp/tsconfig/base.json",
+  "include": ["src"]
+}
+```
+
+**Create `packages/shared/src/index.ts`** — your barrel export:
+
+```typescript
+export * from './domain';
+export * from './events';
+export * from './constants';
+```
 
 ```bash
-mkdir -p packages/my-ui/src
-cd packages/my-ui
+# From monorepo root — resolves the new workspace:* ref in shared's devDeps
+pnpm install
+```
+
+---
+
+## 8. Phase 5 — Create a React Native UI Package (`@myapp/ui`)
+
+Use this pattern for packages that contain React Native components, theme tokens, and shared hooks. The key difference from `shared` is:
+
+- `peerDependencies` instead of `dependencies` for `react` and `react-native`
+- `react-native.json` tsconfig preset instead of `base.json`
+- `exports` map for sub-path imports like `@myapp/ui/theme`
+
+```bash
+mkdir -p packages/ui/src
+cd packages/ui
 pnpm init
-
-# Add to package.json:
-# {
-#   "name": "@fitsync/my-ui",
-#   "main": "src/index.ts",
-#   "peerDependencies": {
-#     "react": ">=19.0.0",
-#     "react-native": ">=0.83.0"
-#   }
-# }
-
-cp ../../packages/tsconfig/react-native.json ./tsconfig.json
-
-# Create component
-cat > src/Button.tsx << 'EOF'
-import React from 'react';
-import { Pressable, Text, StyleSheet } from 'react-native';
-
-export const Button: React.FC<{ title: string; onPress: () => void }> = ({
-  title,
-  onPress,
-}) => (
-  <Pressable style={styles.button} onPress={onPress}>
-    <Text style={styles.text}>{title}</Text>
-  </Pressable>
-);
-
-const styles = StyleSheet.create({
-  button: { padding: 12, backgroundColor: '#208AEF', borderRadius: 8 },
-  text: { color: '#fff', fontSize: 16, fontWeight: '600' },
-});
-EOF
-
-echo "export { Button } from './Button';" > src/index.ts
 ```
 
-### C — Expo Module (Android + Kotlin + Room)
+**Manually edit `packages/ui/package.json`:**
+
+```json
+{
+  "name": "@myapp/ui",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./theme": "./src/theme/index.ts",
+    "./hooks": "./src/hooks/index.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf build"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "@myapp/tsconfig": "workspace:*",
+    "typescript": "~5.8.3"
+  }
+}
+```
+
+**Create `packages/ui/tsconfig.json`:**
+
+```json
+{
+  "extends": "@myapp/tsconfig/react-native.json",
+  "compilerOptions": {
+    "outDir": "build",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}
+```
+
+> **Why `peerDependencies`?** The mobile app already installs `react` and `react-native`. If `ui` listed them as regular `dependencies`, you'd get two copies — causing the "Invalid hook call" error. `peerDependencies` tells pnpm "use whatever version the app has."
+
+**Typical folder layout for `packages/ui/src/`:**
+
+```
+src/
+  index.ts           ← barrel export of everything
+  theme/
+    colors.ts        ← ColorScheme tokens (light + dark)
+    typography.ts    ← Fonts, FontSize scale
+    spacing.ts       ← Spacing, BorderRadius
+    index.ts
+  hooks/
+    useTheme.ts      ← useColorScheme() → theme object
+    index.ts
+  Button/
+    Button.tsx
+    index.ts
+  Card/
+    Card.tsx
+    index.ts
+  Input/
+    Input.tsx
+    index.ts
+```
 
 ```bash
-# Generate Expo module scaffold
-npx create-expo-module packages/my-datasync --local
+pnpm install
+```
 
-cd packages/my-datasync
+---
 
-# Update expo-module.config.json
-cat > expo-module.config.json << 'EOF'
+## 9. Phase 6 — Create an Expo Module Package (JS ↔ Kotlin Bridge)
+
+Use this pattern when you need Android native code: database access, BLE, NFC, sensors, etc. The Expo Modules API is the bridge between JavaScript and Kotlin.
+
+### Step 1 — Scaffold with CLI
+
+```bash
+# Run from the monorepo ROOT (not inside packages/)
+npx create-expo-module@latest packages/my-module --local
+```
+
+This generates:
+
+```
+packages/my-module/
+  expo-module.config.json   ← auto-generated, needs editing
+  package.json              ← needs editing
+  src/
+    MyModuleModule.ts       ← auto-generated TS stub
+    index.ts
+  android/
+    build.gradle            ← base Android config
+    src/main/java/expo/modules/mymodule/
+      MyModuleModule.kt     ← Kotlin module stub
+```
+
+### Step 2 — Edit the generated files
+
+**`packages/my-module/expo-module.config.json`** — update the Kotlin class path:
+
+```json
 {
   "platforms": ["android"],
   "android": {
-    "modules": ["com.example.MyDatasyncModule"]
+    "modules": ["expo.modules.mymodule.MyModuleModule"]
   }
 }
-EOF
+```
 
-# Create the main Kotlin module
-mkdir -p android/src/main/java/com/example
-cat > android/src/main/java/com/example/MyDatasyncModule.kt << 'EOF'
-package com.example
+**`packages/my-module/package.json`** — rename and add peerDeps:
+
+```json
+{
+  "name": "@myapp/my-module",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "lint": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "@myapp/tsconfig": "workspace:*",
+    "typescript": "~5.8.3"
+  }
+}
+```
+
+**Create `packages/my-module/tsconfig.json`:**
+
+```json
+{
+  "extends": "@myapp/tsconfig/react-native.json",
+  "include": ["src"]
+}
+```
+
+### Step 3 — Write the Kotlin module
+
+Replace the stub in `packages/my-module/android/src/main/java/expo/modules/mymodule/MyModuleModule.kt`:
+
+```kotlin
+package expo.modules.mymodule
 
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.functions.Coroutine
 
-class MyDatasyncModule : Module() {
+class MyModuleModule : Module() {
   override fun definition() = ModuleDefinition {
-    Name("MyDatasync")
+    Name("MyModule")
 
+    // All suspend function calls MUST use Coroutine { } infix
     AsyncFunction("getData") Coroutine { ->
-      // Suspend function — hits Kotlin coroutines
-      emptyMap<String, Any>()
+      mapOf("result" to "hello from Kotlin")
     }
+
+    // Emit events back to JS
+    Events("onDataChanged")
   }
 }
-EOF
-
-# Create TS wrapper
-cat > src/index.ts << 'EOF'
-import { requireNativeModule } from 'expo-modules-core';
-
-const MyDatasyncNative = requireNativeModule('MyDatasync');
-
-export const MyDatasync = {
-  getData: () => MyDatasyncNative.getData(),
-};
-EOF
-
-# Add Room to build.gradle
-# (see apps/mobile/android/app/build.gradle for Room dependencies)
 ```
 
-### D — Link New Package to Mobile App
+> **Critical rule:** Any `AsyncFunction` body that calls a `suspend` function must use `Coroutine { }` infix. Without it, the call blocks the JS thread and the app will hang.
+
+### Step 4 — Write the TypeScript wrapper
+
+Replace `packages/my-module/src/index.ts`:
+
+```typescript
+import { requireNativeModule } from 'expo-modules-core';
+
+const MyModuleNative = requireNativeModule('MyModule');
+
+export const MyModule = {
+  getData: (): Promise<{ result: string }> => MyModuleNative.getData(),
+};
+```
+
+### Step 5 — If using Room (database): add the KSP config plugin
+
+Room uses Kotlin Symbol Processing to generate DAO code at compile time. You need a config plugin to inject the KSP classpath during `expo prebuild`.
+
+**Create `apps/mobile/plugins/withKspPlugin.js`:**
+
+```javascript
+const { withProjectBuildGradle, withGradleProperties } = require('expo/config-plugins');
+
+function withKspPlugin(config) {
+  // Inject KSP + serialization into root android/build.gradle
+  config = withProjectBuildGradle(config, (config) => {
+    if (config.modResults.language === 'groovy') {
+      let contents = config.modResults.contents;
+      if (!contents.includes('com.google.devtools.ksp')) {
+        contents = contents.replace(
+          "classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')",
+          "classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')\n" +
+            "    classpath('com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin:2.1.20-2.0.1')\n" +
+            "    classpath('org.jetbrains.kotlin:kotlin-serialization:2.1.20')",
+        );
+      }
+      config.modResults.contents = contents;
+    }
+    return config;
+  });
+
+  // Lock to arm64-v8a (device builds only)
+  config = withGradleProperties(config, (config) => {
+    const props = config.modResults;
+    const archProp = props.find(
+      (p) => p.type === 'property' && p.key === 'reactNativeArchitectures',
+    );
+    if (archProp) archProp.value = 'arm64-v8a';
+    return config;
+  });
+
+  return config;
+}
+
+module.exports = withKspPlugin;
+```
+
+**Register the plugin in `apps/mobile/app.json`:**
+
+```json
+{
+  "expo": {
+    "plugins": ["./plugins/withKspPlugin"]
+  }
+}
+```
+
+### Step 6 — Link and regenerate
 
 ```bash
-# 1. Add dependency to apps/mobile/package.json
-cd apps/mobile
-pnpm add @fitsync/my-utils --workspace
-pnpm add @fitsync/my-ui --workspace
-pnpm add @fitsync/my-datasync --workspace
+# Add to apps/mobile/package.json dependencies:
+# "@myapp/my-module": "workspace:*"
 
-# 2. Reinstall monorepo
+# From monorepo root
 pnpm install
 
-# 3. For Expo modules, regenerate Android
+# Regenerate Android project so Expo autolinking picks up the new Kotlin module
+cd apps/mobile
 npx expo prebuild --platform android --clean
 ```
 
 ---
 
-## 8. Expo Modules API — JS ↔ Kotlin Pattern
+## 10. How Packages Connect — The Full Link Chain
+
+Understanding this chain prevents the most common "package not found" and "module not found" errors.
+
+```
+pnpm-workspace.yaml
+  └─ declares packages/ui, packages/shared, etc. as workspace packages
+
+apps/mobile/package.json
+  └─ "@myapp/ui": "workspace:*"   ← workspace protocol
+       │
+       ▼
+pnpm install
+  └─ creates: node_modules/@myapp/ui → ../../packages/ui  (symlink)
+
+Metro bundler (TypeScript / JS resolution)
+  └─ import { Button } from '@myapp/ui'
+       │
+       ▼
+  resolves to: packages/ui/src/index.ts   (via "main" field in package.json)
+
+expo prebuild (Android native resolution)
+  └─ scans node_modules/ for expo-module.config.json
+       │
+       ▼
+  finds: node_modules/@myapp/my-module/expo-module.config.json
+       │
+       ▼
+  auto-generates: ExpoModulesPackageList.java
+    → registers: MyModuleModule.kt in the APK
+
+Turborepo (build task order)
+  └─ turbo run build
+       │
+       ▼
+  reads "dependsOn": ["^build"]
+       │
+       ▼
+  builds shared → ui → mobile (in correct dependency order)
+```
+
+### Workspace dependency graph
+
+```
+apps/mobile
+  ├── @myapp/shared    (pure TS types)
+  ├── @myapp/ui        (RN components + theme)
+  ├── @myapp/datasync  (Expo Module: Room)
+  ├── @myapp/nfc       (Expo Module: NFC)
+  └── @myapp/ble-scale (Expo Module: BLE)
+
+@myapp/ui
+  └── @myapp/tsconfig  (devDep: TS config preset)
+
+@myapp/shared
+  └── @myapp/tsconfig  (devDep: TS config preset)
+```
+
+---
+
+## 11. TypeScript Config Inheritance Chain
+
+No `.eslintrc` file is needed in this project — `expo lint` (run via `pnpm lint` in `apps/mobile`) uses the Expo ESLint preset automatically.
+
+The TypeScript config inheritance looks like this:
+
+```
+packages/tsconfig/base.json           ← strict settings, no JSX
+    └─ packages/tsconfig/react-native.json  ← adds jsx: react-jsx, RN types
+           ├─ packages/ui/tsconfig.json
+           ├─ packages/nfc/tsconfig.json
+           ├─ packages/ble-scale/tsconfig.json
+           └─ apps/mobile/tsconfig.json     ← adds paths: { "@/*": ["./src/*"] }
+
+packages/tsconfig/base.json
+    └─ packages/shared/tsconfig.json        ← pure TS, no JSX needed
+```
+
+Each package's `tsconfig.json` is minimal — just one `extends` line plus `include`:
+
+```json
+{
+  "extends": "@myapp/tsconfig/react-native.json",
+  "include": ["src"]
+}
+```
+
+The root `tsconfig.json` exists only so IDE tooling (VS Code, language servers) can understand the whole project at once via TypeScript project references. It has no effect on compilation.
+
+---
+
+## 12. Expo Modules API — JS ↔ Kotlin Pattern Reference
+
+### Kotlin side
 
 ```kotlin
-// ExpoDataSyncModule.kt
 class ExpoDataSyncModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("DataSync")
 
-    // AsyncFunction + Coroutine = safe suspend bridge
+    // Async call that returns a value (use Coroutine for suspend fns)
     AsyncFunction("recordEvent") Coroutine { payload: String ->
-      engine.recordEvent(Json.decodeFromString(payload))   // suspend call
+      engine.recordEvent(Json.decodeFromString(payload))
     }
 
-    // Send real-time event to JS
+    // Push real-time event to JS
     Events("onSyncStatusChanged")
   }
 }
 ```
 
+### TypeScript side
+
 ```typescript
-// packages/datasync/src/index.ts
-import { requireNativeModule } from 'expo-modules-core';
+import { requireNativeModule, EventEmitter } from 'expo-modules-core';
+
 const DataSyncNative = requireNativeModule('DataSync');
+const emitter = new EventEmitter(DataSyncNative);
 
 export const DataSync = {
-  recordEvent: (payload: object) =>
-    DataSyncNative.recordEvent(JSON.stringify(payload)),
+  recordEvent: (payload: object) => DataSyncNative.recordEvent(JSON.stringify(payload)),
+
+  addSyncListener: (handler: (status: SyncStatus) => void) =>
+    emitter.addListener('onSyncStatusChanged', handler),
 };
 ```
 
+### Usage in a Redux thunk
+
 ```typescript
-// apps/mobile – usage in a thunk
-await DataSync.recordEvent({ type: 'WeightRecorded', ... });
+export const recordWeightThunk = createAsyncThunk('weigh/record', async (data: WeightPayload) => {
+  const eventId = await DataSync.recordEvent({ type: 'WeightRecorded', ...data });
+  return eventId;
+});
 ```
 
 ---
 
-## 9. Event Flow — End to End
-
-```mermaid
-sequenceDiagram
-    participant UI as RN Screen
-    participant Redux as Redux Thunk
-    participant TS as DataSync (TS)
-    participant Bridge as ExpoDataSyncModule
-    participant Engine as DataSyncEngine
-    participant DB as Room DB
-    participant Outbox as EventOutbox
-    participant Sync as WorkManager
-
-    UI->>Redux: dispatch(recordWeight(data))
-    Redux->>TS: DataSync.recordEvent(payload)
-    TS->>Bridge: AsyncFunction call (JS thread)
-    Bridge->>Engine: engine.recordEvent() [suspend, IO thread]
-    Engine->>DB: insert EventEntity
-    Engine->>Outbox: enqueue for sync
-    Outbox-->>Sync: scheduleOneTimeWork
-    Sync-->>DB: mark Pending → DeviceSynced → BackendSynced
-    DB-->>Bridge: return eventId
-    Bridge-->>Redux: resolve promise
-    Redux-->>UI: state updated
-```
-
----
-
-## 10. Adding a New Package (checklist)
-
-### A — Pure TypeScript package
-
-```
-packages/my-pkg/
-  package.json    ("name": "@fitsync/my-pkg", "main": "src/index.ts")
-  tsconfig.json   (extends ../../packages/tsconfig/base.json)
-  src/index.ts
-```
-
-1. Add `"@fitsync/my-pkg": "workspace:*"` to `apps/mobile/package.json`
-2. `pnpm install`
-3. Import normally: `import { } from '@fitsync/my-pkg'`
-
-### B — Android Expo Module package (with Room / Kotlin)
-
-```
-packages/my-module/
-  expo-module.config.json   ← { "platforms": ["android"], "android": { "modules": ["com.example.MyModule"] } }
-  package.json              ← name + version
-  android/
-    build.gradle            ← apply ksp, add Room deps
-    src/main/java/com/example/
-      MyModule.kt           ← class MyModule : Module() { … }
-      db/                   ← entities, DAOs, database
-  src/
-    index.ts                ← TS wrapper
-```
-
-Key rules:
-- All suspend calls in `AsyncFunction("x") Coroutine { … }` — **never** plain `AsyncFunction`
-- Add KSP config plugin if using Room annotations (see `withKspPlugin.js`)
-- Register module in `expo-module.config.json`
-- After `pnpm install`, run `npx expo prebuild --platform android --clean` to regenerate
-
----
-
-## 11. Quick Command Reference
+## 13. Quick Command Reference
 
 ```bash
-pnpm install                                # install all workspaces
-npx expo start                              # Metro dev server (press a for Android)
-npx expo prebuild --platform android        # regenerate native Android project
-npx expo run:android                        # build + install on device
-cd apps/mobile/android && ./gradlew assembleDebug  # direct Gradle build
+# From monorepo root
+pnpm install                              # install + link all workspaces
+turbo run build                           # build all packages in dependency order
+turbo run test                            # test all packages
+turbo run lint                            # lint all packages
+turbo run typecheck                       # type-check all packages
 
-cd apps/mobile && npx jest                  # run 69 mobile tests
-cd packages/shared && npx jest              # run 30 shared tests
-npx jest --coverage                         # coverage report
+# Mobile app
+cd apps/mobile
+npx expo start                            # Metro dev server (press 'a' for Android)
+npx expo start --clear                    # Metro with cache cleared
+npx expo prebuild --platform android      # generate android/ from Expo config
+npx expo prebuild --platform android --clean  # wipe + regenerate android/
+npx expo run:android                      # debug build — install on connected device/emulator
+npx expo run:android --variant release    # release build — bundles JS into APK, no Metro needed
+npx jest                                  # run tests
+npx jest --coverage                       # run tests with coverage report
+
+# Gradle (direct, faster for incremental builds)
+cd apps/mobile/android
+./gradlew assembleDebug                   # debug APK
+./gradlew assembleRelease                 # release APK
+./gradlew clean                           # wipe build outputs
 ```
+
+> **`--variant release` explained:**
+>
+> |                         | `run:android` (debug)             | `run:android --variant release`                          |
+> | ----------------------- | --------------------------------- | -------------------------------------------------------- |
+> | JS bundled into APK?    | No — loaded from Metro at runtime | Yes — `index.android.bundle` embedded                    |
+> | Requires running Metro? | Yes                               | No — app is fully standalone                             |
+> | Minified / optimised?   | No                                | Yes                                                      |
+> | Use case                | Day-to-day development            | Testing production behaviour on a real device            |
+> | Signing                 | Debug keystore (auto)             | Requires a release keystore configured in `build.gradle` |
+>
+> Under the hood it runs `expo prebuild` (if `android/` is missing) then calls `./gradlew assembleRelease` and installs the APK via `adb`. The equivalent manual steps are:
+>
+> ```bash
+> cd apps/mobile/android
+> ./gradlew assembleRelease
+> adb install -r app/build/outputs/apk/release/app-release.apk
+> adb shell am start -n com.fitsync.mobile/.MainActivity
+> ```
 
 ---
 
-## 12. Gotchas
+## 14. Gotchas
 
-| Problem | Fix |
-|---|---|
-| KSP not found after prebuild | `withKspPlugin.js` must be listed in `app.json` plugins |
-| Room compile error after adding entity | Add entity to `@Database(entities = […])` and bump `version` |
-| `AsyncFunction` hangs on suspend call | Wrap body with `Coroutine { }` infix — required for all suspend calls |
-| Package not found in metro | Run `pnpm install` then restart Metro with `--reset-cache` |
-| ABI mismatch on non-Samsung device | Remove `abiFilters "arm64-v8a"` in `withKspPlugin.js` for local testing |
+| Problem                                   | Cause                                        | Fix                                                                                                |
+| ----------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `Unable to resolve "@myapp/..."` in Metro | pnpm symlink missing                         | Run `pnpm install` from monorepo root, then `npx expo start --clear`                               |
+| KSP classpath not found during Gradle     | `withKspPlugin.js` not registered            | Check `app.json` has `"plugins": ["./plugins/withKspPlugin"]`                                      |
+| `AsyncFunction` hangs app                 | Calling a suspend fn without `Coroutine { }` | Wrap every suspend call: `AsyncFunction("x") Coroutine { → ... }`                                  |
+| Room compile error after adding entity    | Entity not registered in `@Database`         | Add class to `entities = [...]` array and bump `version`                                           |
+| `Invalid hook call`                       | Multiple copies of `react`                   | Add `resolutions` in root `package.json` to pin to one version                                     |
+| ABI mismatch on emulator                  | `arm64-v8a` only build                       | Temporarily set `reactNativeArchitectures=x86_64,arm64-v8a` in `gradle.properties` (do not commit) |
+| KSP version mismatch                      | Kotlin + KSP versions out of sync            | KSP version must exactly match Kotlin: `2.1.20` → `2.1.20-2.0.1`                                   |
+| Package not picked up by Expo autolinking | Missing `expo-module.config.json`            | Ensure file exists and `modules` array points to correct Kotlin package path                       |

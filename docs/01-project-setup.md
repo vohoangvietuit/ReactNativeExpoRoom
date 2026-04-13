@@ -1,14 +1,16 @@
 # 01 — Project Setup
 
+> For a step-by-step guide to creating this monorepo from scratch (all CLI commands + manual config files), see [MONOREPO-QUICK-START.md](./MONOREPO-QUICK-START.md).
+
 ## Prerequisites
 
-| Tool | Minimum Version | Notes |
-|------|----------------|-------|
-| Node.js | 20+ | Use nvm or fnm |
-| pnpm | 10.20.0+ | `npm i -g pnpm` |
-| JDK | 17 | Required for Android build |
-| Android SDK | API 35 | Install via Android Studio |
-| Android NDK | 27.1+ | For native module compilation |
+| Tool        | Minimum Version | Notes                         |
+| ----------- | --------------- | ----------------------------- |
+| Node.js     | 20+             | Use nvm or fnm                |
+| pnpm        | 10.20.0+        | `npm i -g pnpm`               |
+| JDK         | 17              | Required for Android build    |
+| Android SDK | API 35          | Install via Android Studio    |
+| Android NDK | 27.1+           | For native module compilation |
 
 ### Environment Variables
 
@@ -53,9 +55,9 @@ Turborepo pipeline — tasks cascade through the dependency graph:
 ```json
 {
   "pipeline": {
-    "build":  { "dependsOn": ["^build"], "outputs": ["build/**"] },
-    "test":   { "dependsOn": ["^build"] },
-    "lint":   {}
+    "build": { "dependsOn": ["^build"], "outputs": ["build/**"] },
+    "test": { "dependsOn": ["^build"] },
+    "lint": {}
   }
 }
 ```
@@ -67,6 +69,16 @@ node-linker=hoisted
 ```
 
 Required because React Native's Metro bundler and native modules expect packages to live at the root `node_modules/`.
+
+### Linting
+
+No `.eslintrc` file is needed. `apps/mobile` uses `expo lint`, which invokes the Expo ESLint preset automatically. To run it:
+
+```bash
+cd apps/mobile && pnpm lint
+# or via Turborepo from root:
+turbo run lint
+```
 
 ---
 
@@ -174,9 +186,9 @@ Do not commit this change.
 
 KSP must match the exact Kotlin version. Current versions:
 
-| Package | Version |
-|---------|---------|
-| Kotlin  | 2.1.20 |
+| Package | Version      |
+| ------- | ------------ |
+| Kotlin  | 2.1.20       |
 | KSP     | 2.1.20-2.0.1 |
 
 If you update Kotlin, update KSP in `withKspPlugin.js` to match.

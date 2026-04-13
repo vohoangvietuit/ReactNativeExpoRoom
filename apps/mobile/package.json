@@ -1,5 +1,5 @@
 {
-  "name": "mobile",
+  "name": "@fitsync/mobile",
   "main": "./index.js",
   "version": "1.0.0",
   "scripts": {
@@ -7,7 +7,6 @@
     "storybook": "EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start",
     "storybook:android": "EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --android",
     "storybook:generate": "node ../../node_modules/@storybook/react-native/scripts/get-stories.js --config-path .storybook",
-    "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",

@@ -2,6 +2,7 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import Constants from 'expo-constants';
+import { Colors } from '@/constants/theme';
 
 const version = Constants.expoConfig?.version ?? '—';
 const buildNumber =
@@ -24,7 +25,7 @@ export default function TabLayout() {
         style={styles.tabs}
         screenOptions={{
           headerShown: true,
-          tabBarActiveTintColor: '#007AFF',
+          tabBarActiveTintColor: Colors.light.primary,
         }}
       >
         <Tabs.Screen

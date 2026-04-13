@@ -12,6 +12,7 @@ import {
 import { useNfcReader } from '@fitsync/nfc';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useStore';
 import { clearSelectedMember, identifyMemberByNfcThunk } from '../store/memberSlice';
+import { Colors, FontSize, Spacing, BorderRadius } from '@/constants/theme';
 
 export default function MemberIdentifyScreen() {
   const dispatch = useAppDispatch();
@@ -96,7 +97,7 @@ export default function MemberIdentifyScreen() {
       >
         {isScanning ? (
           <>
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={Colors.light.textOnPrimary} />
             <Text style={styles.scanButtonText}>Scanning... Tap to Cancel</Text>
           </>
         ) : (
@@ -165,100 +166,100 @@ export default function MemberIdentifyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.light.surface,
   },
   content: {
-    padding: 16,
+    padding: Spacing.three,
   },
   header: {
-    fontSize: 24,
+    fontSize: FontSize.xxl,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: Spacing.three,
   },
   nfcStatus: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+    backgroundColor: Colors.light.card,
+    padding: Spacing.three,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.three,
   },
   statusText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: FontSize.body,
+    color: Colors.light.textTertiary,
   },
   noSessionBadge: {
-    fontSize: 12,
-    color: '#856404',
-    marginTop: 4,
+    fontSize: FontSize.sm,
+    color: Colors.light.warningDark,
+    marginTop: Spacing.one,
   },
   scanButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
+    backgroundColor: Colors.light.primary,
+    borderRadius: BorderRadius.lg,
     padding: 20,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.three,
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
+    gap: Spacing.two,
   },
   scanningButton: {
-    backgroundColor: '#ff9500',
+    backgroundColor: Colors.light.warning,
   },
   scanButtonText: {
-    color: '#fff',
-    fontSize: 18,
+    color: Colors.light.textOnPrimary,
+    fontSize: FontSize.lg,
     fontWeight: '600',
   },
   error: {
-    color: 'red',
+    color: Colors.light.danger,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.three,
   },
   memberCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: Colors.light.card,
+    padding: Spacing.three,
+    borderRadius: BorderRadius.lg,
     borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
+    borderLeftColor: Colors.light.primary,
   },
   memberCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: Spacing.two,
   },
   memberName: {
-    fontSize: 20,
+    fontSize: FontSize.xl,
     fontWeight: 'bold',
     flex: 1,
   },
   clearButton: {
-    fontSize: 13,
-    color: '#888',
+    fontSize: FontSize.caption,
+    color: Colors.light.textMuted,
     fontWeight: '600',
-    paddingLeft: 8,
+    paddingLeft: Spacing.two,
   },
   memberDetail: {
-    fontSize: 14,
-    color: '#555',
-    marginBottom: 4,
+    fontSize: FontSize.body,
+    color: Colors.light.textTertiary,
+    marginBottom: Spacing.one,
   },
   notFoundCard: {
-    backgroundColor: '#FFF8E1',
-    borderRadius: 10,
+    backgroundColor: Colors.light.warningLight,
+    borderRadius: BorderRadius.lg,
     padding: 14,
-    marginBottom: 12,
+    marginBottom: Spacing.three,
     borderLeftWidth: 4,
-    borderLeftColor: '#FFC107',
+    borderLeftColor: Colors.light.warningAccent,
   },
   notFoundText: {
-    fontSize: 14,
+    fontSize: FontSize.body,
     fontWeight: '600',
-    color: '#856404',
-    marginBottom: 4,
+    color: Colors.light.warningDark,
+    marginBottom: Spacing.one,
   },
   notFoundHint: {
-    fontSize: 12,
-    color: '#856404',
+    fontSize: FontSize.sm,
+    color: Colors.light.warningDark,
     fontFamily: 'monospace',
   },
 });

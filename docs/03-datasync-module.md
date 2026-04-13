@@ -251,3 +251,207 @@ export function addSyncStatusListener(
 ```
 
 All `AsyncFunction` calls return a JS `Promise`. The `Coroutine` lambda runs on `Dispatchers.IO` (the module's coroutine scope). Returning a `Map<String, Any>` automatically bridges to a JS object.
+
+---
+
+## How JS Talks to Kotlin — The Bridge Explained
+
+> _"How does `DataSync.recordEvent(...)` called in TypeScript end up running Kotlin code that writes to a Room database?"_
+
+### Bird's-eye view
+
+```mermaid
+graph TB
+    subgraph RN["React Native (JS Thread)"]
+        Screen["Screen Component"]
+        Thunk["Redux Thunk"]
+        TSFacade["TS Facade\npackages/datasync/src/index.ts\nrequireNativeModule('ExpoDataSync')"]
+    end
+
+    subgraph Bridge["Expo Modules Bridge (C++)"]
+        JSBridge["AsyncFunction serializer\nJS args → Kotlin types\nKotlin result → JS Promise"]
+    end
+
+    subgraph Kotlin["Native Layer (Kotlin / JVM)"]
+        Module["ExpoDataSyncModule.kt\nAsyncFunction('recordEvent') Coroutine"]
+        Engine["DataSyncEngine.kt\nSSoT coordinator"]
+        DB[("AppDatabase\nRoom + SQLCipher\nfitsync.db")]
+        Outbox["EventOutbox\n30s loop"]
+        Worker["BackendSyncWorker\nWorkManager 15min"]
+    end
+
+    Screen -->|dispatch| Thunk
+    Thunk -->|DataSync.recordEvent| TSFacade
+    TSFacade -->|ExpoDataSync.recordEvent| JSBridge
+    JSBridge -->|Coroutine / Dispatchers.IO| Module
+    Module --> Engine
+    Engine -->|INSERT events + outbox| DB
+    Engine -->|sendEvent 'onEventRecorded'| JSBridge
+    JSBridge -->|emitter.addListener callback| Screen
+    DB --> Outbox
+    DB --> Worker
+
+    style RN fill:#E8F4FD,stroke:#208AEF
+    style Bridge fill:#FFF9E6,stroke:#F5A623
+    style Kotlin fill:#E8F8E8,stroke:#34C759
+```
+
+---
+
+### Build-time wiring: 5 files that connect everything
+
+```
+apps/mobile/package.json
+  └─ "@fitsync/datasync": "workspace:*"  → pnpm symlinks the local package
+
+packages/datasync/expo-module.config.json
+  └─ "modules": ["expo.modules.datasync.ExpoDataSyncModule"]
+       → expo prebuild generates ExpoModulesPackageList.java
+       → Kotlin class is registered automatically (no manual AndroidManifest edits)
+
+apps/mobile/plugins/withKspPlugin.js
+  └─ runs during expo prebuild
+       → injects KSP classpath into android/build.gradle
+       → without it, Room @Dao/@Entity annotations cannot be processed
+
+packages/datasync/android/...ExpoDataSyncModule.kt
+  └─ the Kotlin class that defines every callable JS function
+
+packages/datasync/src/index.ts
+  └─ the TypeScript facade that wraps each Kotlin AsyncFunction
+```
+
+---
+
+### What happens during `expo prebuild`
+
+```
+npx expo prebuild --platform android
+│
+├─ Reads app.json → runs config plugins
+│   └─ withKspPlugin.js → injects KSP classpath into android/build.gradle
+│
+├─ Scans node_modules/**/expo-module.config.json
+│   └─ finds @fitsync/datasync → registers ExpoDataSyncModule
+│
+├─ Generates android/app/src/.../ExpoModulesPackageList.java
+├─ Generates android/settings.gradle   include ':datasync'
+└─ Generates android/gradle.properties  reactNativeArchitectures=arm64-v8a
+```
+
+---
+
+### Runtime boot sequence
+
+```mermaid
+sequenceDiagram
+    participant OS as Android OS
+    participant App as MainActivity
+    participant Expo as Expo Module Registry
+    participant DS as ExpoDataSyncModule
+    participant Redux as Redux Store
+    participant Screen as Root Screen
+
+    OS->>App: launch intent
+    App->>Expo: initialize module registry
+    Expo->>DS: new ExpoDataSyncModule() (lazy)
+    App->>Redux: configureStore() — all slices init
+    Redux->>Screen: render <RootLayout>
+    Screen->>Redux: dispatch(checkAuthThunk)
+    Redux->>DS: DataSync.getActiveSession()
+    DS->>DS: engine lazy-init → AppDatabase.getInstance()
+    DS-->>Redux: SessionRecord | null
+    Redux-->>Screen: navigate to (tabs)/ or login
+```
+
+---
+
+### Complete call trace: `dispatch(createTodoThunk)`
+
+```
+1. [Screen]        user presses "Add" → dispatch(createTodoThunk({ title, sessionId }))
+
+2. [Redux Thunk]   await DataSync.recordEvent('TodoCreated', { todoId, title }, sessionId)
+
+3. [TS Facade]     ExpoDataSync.recordEvent('TodoCreated', '{"todoId":"..."}', sessionId)
+                   ↓  crosses the JS bridge
+
+4. [JS Bridge]     serializes 3 string args → invokes Kotlin Coroutine on Dispatchers.IO
+
+5. [Kotlin]        engine.recordEvent(eventType, payload, deviceId, sessionId)
+
+6. [DataSyncEngine]
+                   db.eventDao().insert(EventEntity(...))
+                   db.outboxDao().insert(OutboxEntity(status = "Pending"))
+                   applyEventSideEffects(...)  // updates todos table
+                   return eventId
+
+7. [Kotlin → JS]   sendEvent("onEventRecorded", mapOf("eventId" to eventId, ...))
+                   return eventId  → resolves the JS Promise
+
+8. [Redux Thunk]   .fulfilled fires → dispatch(loadTodosThunk())
+                   → DataSync.getAllTodos() → Kotlin reads Room → JS array
+
+9. [Screen]        useAppSelector(selectTodos) re-renders
+```
+
+---
+
+### ExpoDataSyncModule.kt — annotated reference
+
+```kotlin
+class ExpoDataSyncModule : Module() {
+
+    // Lazy-init: Room database not opened until first AsyncFunction call
+    private val engine: DataSyncEngine by lazy {
+        DataSyncEngine(appContext.reactContext!!)
+    }
+
+    override fun definition() = ModuleDefinition {
+
+        // Must match requireNativeModule('ExpoDataSync') in index.ts
+        Name("ExpoDataSync")
+
+        // All events the module can emit to JS listeners
+        Events("onEventRecorded", "onSyncStatusChanged", "onDeviceFound")
+
+        // Coroutine infix is REQUIRED when calling any suspend function
+        AsyncFunction("recordEvent") Coroutine { eventType: String, payload: String, sessionId: String ->
+            val eventId = engine.recordEvent(eventType, payload, getDeviceId(), sessionId)
+            sendEvent("onEventRecorded", mapOf("eventId" to eventId, "eventType" to eventType))
+            eventId   // becomes the resolved Promise value in JS
+        }
+
+        AsyncFunction("getAllTodos") Coroutine { ->
+            engine.getAllTodos().map { it.toMap() }
+        }
+
+        // Functions that don't call suspend code don't need Coroutine
+        AsyncFunction("schedulePeriodicSync") {
+            SyncScheduler.schedulePeriodicBackendSync(appContext.reactContext!!)
+            "ok"
+        }
+    }
+}
+```
+
+---
+
+### The Outbox state machine
+
+```
+Pending outbox entries are drained by two background processes:
+
+EventOutbox.kt (30-second polling loop)
+  1. SELECT * FROM outbox WHERE status = 'Pending' LIMIT 50
+  2. Serialize events to JSON batch
+  3. NearbyManager.sendPayload(endpointId, batch)   ← Bluetooth/WiFi Direct
+  4. On ACK: UPDATE outbox SET status = 'DeviceSynced'
+  5. sendEvent("onSyncStatusChanged")  → JS UI updates
+
+BackendSyncWorker.kt (WorkManager, 15-min periodic job)
+  1. SELECT * FROM outbox WHERE status = 'DeviceSynced' LIMIT 100
+  2. HTTP POST /api/events  (batch upload)
+  3. On 200 OK: UPDATE outbox SET status = 'BackendSynced'
+  4. WorkManager handles retry with exponential backoff on failure
+```

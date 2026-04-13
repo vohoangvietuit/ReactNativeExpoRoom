@@ -8,6 +8,7 @@ import {
   deleteTodoThunk,
 } from '../store/todoSlice';
 import * as DataSync from '@fitsync/datasync';
+import { Colors, FontSize, Spacing, BorderRadius } from '@/constants/theme';
 
 export default function TodoListScreen() {
   const dispatch = useAppDispatch();
@@ -127,70 +128,70 @@ export default function TodoListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#f5f5f5',
+    padding: Spacing.three,
+    backgroundColor: Colors.light.surface,
   },
   header: {
-    fontSize: 24,
+    fontSize: FontSize.xxl,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: Spacing.three,
   },
   inputRow: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: Spacing.three,
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#fff',
-    fontSize: 16,
-    marginRight: 8,
+    borderColor: Colors.light.border,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.three,
+    backgroundColor: Colors.light.card,
+    fontSize: FontSize.base,
+    marginRight: Spacing.two,
   },
   addButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
+    backgroundColor: Colors.light.primary,
+    borderRadius: BorderRadius.md,
     width: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addButtonText: {
-    color: '#fff',
-    fontSize: 24,
+    color: Colors.light.textOnPrimary,
+    fontSize: FontSize.xxl,
     fontWeight: 'bold',
   },
   todoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
+    backgroundColor: Colors.light.card,
+    padding: Spacing.three,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.two,
   },
   checkbox: {
-    marginRight: 12,
+    marginRight: Spacing.three,
   },
   checkboxText: {
-    fontSize: 20,
+    fontSize: FontSize.xl,
   },
   todoTitle: {
     flex: 1,
-    fontSize: 16,
+    fontSize: FontSize.base,
   },
   completed: {
     textDecorationLine: 'line-through',
-    color: '#999',
+    color: Colors.light.textMuted,
   },
   deleteText: {
-    fontSize: 24,
-    color: '#ff3b30',
-    paddingLeft: 8,
+    fontSize: FontSize.xxl,
+    color: Colors.light.danger,
+    paddingLeft: Spacing.two,
   },
   empty: {
     textAlign: 'center',
-    color: '#999',
-    marginTop: 32,
+    color: Colors.light.textMuted,
+    marginTop: Spacing.five,
   },
 });

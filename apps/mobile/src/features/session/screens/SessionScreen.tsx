@@ -1,12 +1,18 @@
 import React, { useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useStore';
-import { loadSyncStatusThunk, triggerSyncThunk, schedulePeriodicSyncThunk, startOutboxThunk } from '../../sync/store/syncSlice';
+import {
+  loadSyncStatusThunk,
+  triggerSyncThunk,
+  schedulePeriodicSyncThunk,
+  startOutboxThunk,
+} from '../../sync/store/syncSlice';
 import {
   loadActiveSessionThunk,
   startSessionThunk,
   endSessionThunk,
 } from '../../session/store/sessionSlice';
+import { Colors, FontSize, Spacing, BorderRadius } from '@/constants/theme';
 
 export default function SessionScreen() {
   const dispatch = useAppDispatch();
@@ -91,66 +97,66 @@ export default function SessionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#f5f5f5',
+    padding: Spacing.three,
+    backgroundColor: Colors.light.surface,
   },
   header: {
-    fontSize: 24,
+    fontSize: FontSize.xxl,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: Spacing.three,
   },
   sessionCard: {
-    backgroundColor: '#d4edda',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+    backgroundColor: Colors.light.successLight,
+    padding: Spacing.three,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.three,
   },
   sessionStatus: {
-    fontSize: 18,
+    fontSize: FontSize.lg,
     fontWeight: 'bold',
-    color: '#155724',
-    marginBottom: 8,
+    color: Colors.light.successDark,
+    marginBottom: Spacing.two,
   },
   sessionId: {
-    color: '#155724',
-    fontSize: 12,
-    marginBottom: 8,
+    color: Colors.light.successDark,
+    fontSize: FontSize.sm,
+    marginBottom: Spacing.two,
   },
   sessionDetail: {
-    color: '#155724',
-    marginBottom: 4,
+    color: Colors.light.successDark,
+    marginBottom: Spacing.one,
   },
   button: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
+    backgroundColor: Colors.light.primary,
+    borderRadius: BorderRadius.md,
     padding: 14,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: Spacing.three,
   },
   endButton: {
-    backgroundColor: '#ff3b30',
+    backgroundColor: Colors.light.danger,
   },
   syncButton: {
-    backgroundColor: '#ff9500',
+    backgroundColor: Colors.light.warning,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: Colors.light.textOnPrimary,
+    fontSize: FontSize.base,
     fontWeight: '600',
   },
   syncCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 16,
+    backgroundColor: Colors.light.card,
+    padding: Spacing.three,
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.three,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: FontSize.lg,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: Spacing.two,
   },
   syncDetail: {
-    color: '#666',
-    marginBottom: 4,
+    color: Colors.light.textTertiary,
+    marginBottom: Spacing.one,
   },
 });

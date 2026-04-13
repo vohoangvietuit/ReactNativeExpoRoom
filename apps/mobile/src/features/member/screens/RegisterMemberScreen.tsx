@@ -12,6 +12,7 @@ import {
 import { useNfcReader } from '@fitsync/nfc';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useStore';
 import { registerMemberThunk } from '../store/memberSlice';
+import { Colors, FontSize, Spacing, BorderRadius } from '@/constants/theme';
 
 export default function RegisterMemberScreen() {
   const dispatch = useAppDispatch();
@@ -202,7 +203,7 @@ export default function RegisterMemberScreen() {
           >
             {isScanning ? (
               <View style={styles.row}>
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={Colors.light.textOnPrimary} size="small" />
                 <Text style={styles.nfcButtonText}> Scanning... Tap to Cancel</Text>
               </View>
             ) : (
@@ -221,7 +222,7 @@ export default function RegisterMemberScreen() {
         accessibilityLabel="Register member"
       >
         {isRegisterLoading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={Colors.light.textOnPrimary} />
         ) : (
           <Text style={styles.primaryButtonText}>Register Member</Text>
         )}
@@ -233,95 +234,95 @@ export default function RegisterMemberScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.light.surface,
   },
   content: {
-    padding: 16,
+    padding: Spacing.three,
     paddingBottom: 40,
   },
   warningBox: {
-    backgroundColor: '#FFF3CD',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+    backgroundColor: Colors.light.warningLight,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.three,
+    marginBottom: Spacing.three,
     borderLeftWidth: 4,
-    borderLeftColor: '#FFC107',
+    borderLeftColor: Colors.light.warningAccent,
   },
   warningText: {
-    color: '#856404',
-    fontSize: 13,
+    color: Colors.light.warningDark,
+    fontSize: FontSize.caption,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: Colors.light.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.three,
+    marginBottom: Spacing.three,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: FontSize.base,
     fontWeight: '700',
-    color: '#333',
-    marginBottom: 12,
+    color: Colors.light.text,
+    marginBottom: Spacing.three,
   },
   label: {
-    fontSize: 13,
+    fontSize: FontSize.caption,
     fontWeight: '600',
-    color: '#555',
-    marginBottom: 4,
+    color: Colors.light.textTertiary,
+    marginBottom: Spacing.one,
     marginTop: 10,
   },
   input: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: Colors.light.surface,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 15,
-    color: '#333',
+    borderColor: Colors.light.border,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.three,
+    fontSize: FontSize.md,
+    color: Colors.light.text,
   },
   nfcStatusText: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 12,
+    fontSize: FontSize.caption,
+    color: Colors.light.textTertiary,
+    marginBottom: Spacing.three,
   },
   tagCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: Colors.light.successSurface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.three,
     borderWidth: 1,
-    borderColor: '#A5D6A7',
+    borderColor: Colors.light.successBorder,
   },
   tagLabel: {
-    fontSize: 12,
-    color: '#555',
-    marginBottom: 2,
+    fontSize: FontSize.sm,
+    color: Colors.light.textTertiary,
+    marginBottom: Spacing.half,
   },
   tagValue: {
-    fontSize: 14,
+    fontSize: FontSize.body,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: Colors.light.successText,
     fontFamily: 'monospace',
   },
   removeTag: {
-    color: '#D32F2F',
-    fontSize: 14,
+    color: Colors.light.danger,
+    fontSize: FontSize.body,
     fontWeight: '600',
   },
   nfcButton: {
-    backgroundColor: '#5C6BC0',
-    borderRadius: 8,
+    backgroundColor: Colors.light.info,
+    borderRadius: BorderRadius.md,
     padding: 14,
     alignItems: 'center',
   },
   nfcButtonDisabled: {
-    backgroundColor: '#BDBDBD',
+    backgroundColor: Colors.light.disabled,
   },
   nfcButtonText: {
-    color: '#fff',
-    fontSize: 15,
+    color: Colors.light.textOnPrimary,
+    fontSize: FontSize.md,
     fontWeight: '600',
   },
   row: {
@@ -329,53 +330,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
-    color: '#D32F2F',
-    fontSize: 14,
-    marginBottom: 12,
+    color: Colors.light.danger,
+    fontSize: FontSize.body,
+    marginBottom: Spacing.three,
     textAlign: 'center',
   },
   primaryButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 10,
-    padding: 16,
+    backgroundColor: Colors.light.primary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.three,
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: Spacing.one,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#BDBDBD',
+    backgroundColor: Colors.light.disabled,
   },
   primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: Colors.light.textOnPrimary,
+    fontSize: FontSize.base,
     fontWeight: '700',
   },
   successContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-    backgroundColor: '#f5f5f5',
+    padding: Spacing.five,
+    backgroundColor: Colors.light.surface,
   },
   successIcon: {
     fontSize: 64,
-    marginBottom: 16,
+    marginBottom: Spacing.three,
   },
   successTitle: {
-    fontSize: 24,
+    fontSize: FontSize.xxl,
     fontWeight: '700',
-    color: '#2E7D32',
-    marginBottom: 8,
+    color: Colors.light.successText,
+    marginBottom: Spacing.two,
   },
   successId: {
-    fontSize: 12,
-    color: '#777',
+    fontSize: FontSize.sm,
+    color: Colors.light.textMuted,
     fontFamily: 'monospace',
-    marginBottom: 4,
+    marginBottom: Spacing.one,
   },
   successNfc: {
-    fontSize: 12,
-    color: '#555',
+    fontSize: FontSize.sm,
+    color: Colors.light.textTertiary,
     fontFamily: 'monospace',
-    marginBottom: 32,
+    marginBottom: Spacing.five,
   },
 });

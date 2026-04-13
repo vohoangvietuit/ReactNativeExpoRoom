@@ -3,7 +3,7 @@
 Offline-first, event-sourced body management Android app. React Native · Expo · Redux Toolkit · Room (SQLCipher) · NFC · BLE scales · Cross-tablet sync.
 
 > **Full project reference:** [docs/PROJECT.md](docs/PROJECT.md)  
-> **Blog-style walkthrough:** [docs/GUIDE.md](docs/GUIDE.md)
+> **Monorepo creation guide:** [docs/MONOREPO-QUICK-START.md](docs/MONOREPO-QUICK-START.md)
 
 ---
 
@@ -370,18 +370,18 @@ pnpm install
 
 ## 8. Docs
 
-| File                                                         | Content                                                     |
-| ------------------------------------------------------------ | ----------------------------------------------------------- |
-| [docs/PROJECT.md](docs/PROJECT.md)                           | Full architecture, data model, tech stack, coding standards |
-| [docs/GUIDE.md](docs/GUIDE.md)                               | Blog-style walkthrough from scratch                         |
-| [docs/01-project-setup.md](docs/01-project-setup.md)         | Prerequisites, installation                                 |
-| [docs/02-architecture.md](docs/02-architecture.md)           | 4-layer design, data flow                                   |
-| [docs/03-datasync-module.md](docs/03-datasync-module.md)     | Room, SQLCipher, KSP                                        |
-| [docs/04-event-model.md](docs/04-event-model.md)             | Event types, idempotency                                    |
-| [docs/05-cross-tablet-sync.md](docs/05-cross-tablet-sync.md) | Nearby Connections                                          |
-| [docs/07-nfc-scales.md](docs/07-nfc-scales.md)               | NFC + BLE scale integration                                 |
-| [docs/08-auth-security.md](docs/08-auth-security.md)         | JWT, encryption, keystore                                   |
-| [docs/09-testing-guide.md](docs/09-testing-guide.md)         | Testing pyramid, mocking                                    |
+| File                                                         | Content                                                        |
+| ------------------------------------------------------------ | -------------------------------------------------------------- |
+| [docs/PROJECT.md](docs/PROJECT.md)                           | Full architecture, data model, tech stack, coding standards    |
+| [docs/MONOREPO-QUICK-START.md](docs/MONOREPO-QUICK-START.md) | Create the monorepo from scratch — CLI commands + config files |
+| [docs/01-project-setup.md](docs/01-project-setup.md)         | Prerequisites, installation                                    |
+| [docs/02-architecture.md](docs/02-architecture.md)           | 4-layer design, data flow                                      |
+| [docs/03-datasync-module.md](docs/03-datasync-module.md)     | Room, SQLCipher, KSP                                           |
+| [docs/04-event-model.md](docs/04-event-model.md)             | Event types, idempotency                                       |
+| [docs/05-cross-tablet-sync.md](docs/05-cross-tablet-sync.md) | Nearby Connections                                             |
+| [docs/07-nfc-scales.md](docs/07-nfc-scales.md)               | NFC + BLE scale integration                                    |
+| [docs/08-auth-security.md](docs/08-auth-security.md)         | JWT, encryption, keystore                                      |
+| [docs/09-testing-guide.md](docs/09-testing-guide.md)         | Testing pyramid, mocking                                       |
 
 ---
 

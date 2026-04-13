@@ -2,7 +2,7 @@
 
 Full technical reference for the FitSync offline-first event-driven body management app.
 
-> For day-to-day commands see [README.md](../README.md). For a blog-style walkthrough see [GUIDE.md](./GUIDE.md).
+> For day-to-day commands see [README.md](../README.md). For a step-by-step monorepo creation guide see [MONOREPO-QUICK-START.md](./MONOREPO-QUICK-START.md).
 
 ---
 
@@ -33,38 +33,38 @@ Your session token is stored securely in Android Keystore via `expo-secure-store
 
 ### Tab 1 — Session (Home)
 
-| Action | How |
-|---|---|
-| Start a session | Tap **Start Session** — creates a `SessionStarted` event |
-| View active session | Session ID, group, member count and event count shown live |
-| View sync status | Colour-coded card showing Pending / DeviceSynced / BackendSynced counts |
+| Action              | How                                                                           |
+| ------------------- | ----------------------------------------------------------------------------- |
+| Start a session     | Tap **Start Session** — creates a `SessionStarted` event                      |
+| View active session | Session ID, group, member count and event count shown live                    |
+| View sync status    | Colour-coded card showing Pending / DeviceSynced / BackendSynced counts       |
 | Trigger manual sync | Tap **Trigger Sync Now** — pushes pending events to other tablets and backend |
-| End a session | Tap **End Session** — records a `SessionEnded` event |
+| End a session       | Tap **End Session** — records a `SessionEnded` event                          |
 
 ### Tab 2 — Members
 
-| Action | How |
-|---|---|
-| Switch modes | Toggle between **Identify** and **Register** tabs at the top |
-| Scan NFC card | In Identify mode — tap **Scan NFC Card** and hold card to back of tablet |
-| Register member | In Register mode — fill form + optionally scan an NFC card to link |
-| Clear identified member | Tap **✕ Clear** to reset the identified member card |
+| Action                  | How                                                                      |
+| ----------------------- | ------------------------------------------------------------------------ |
+| Switch modes            | Toggle between **Identify** and **Register** tabs at the top             |
+| Scan NFC card           | In Identify mode — tap **Scan NFC Card** and hold card to back of tablet |
+| Register member         | In Register mode — fill form + optionally scan an NFC card to link       |
+| Clear identified member | Tap **✕ Clear** to reset the identified member card                      |
 
 ### Tab 3 — Weigh
 
-| Action | How |
-|---|---|
-| Connect BLE scale | Tap **Scan for Scales** → select a discovered scale |
-| Record weight | Step on scale → tap **Save Scale Reading** when stable |
-| Manual entry | Enter weight in kg field and tap **Save** |
+| Action            | How                                                    |
+| ----------------- | ------------------------------------------------------ |
+| Connect BLE scale | Tap **Scan for Scales** → select a discovered scale    |
+| Record weight     | Step on scale → tap **Save Scale Reading** when stable |
+| Manual entry      | Enter weight in kg field and tap **Save**              |
 
 ### Tab 4 — Devices
 
-| Action | How |
-|---|---|
-| Start discovery | Tap **Scan for Devices** |
-| Connect | Tap a discovered device from the list |
-| View sync info | Shows last sync time and event counts per device |
+| Action          | How                                              |
+| --------------- | ------------------------------------------------ |
+| Start discovery | Tap **Scan for Devices**                         |
+| Connect         | Tap a discovered device from the list            |
+| View sync info  | Shows last sync time and event counts per device |
 
 ### Tab 5 — Todos
 
@@ -72,12 +72,12 @@ Todos are a shared task list that syncs across all connected tablets. Useful for
 
 ### Understanding Sync Status
 
-| Status | Meaning |
-|---|---|
-| **Pending** | Recorded locally, not yet sent |
-| **DeviceSynced** | Sent to at least one nearby tablet (ACK received) |
-| **BackendSynced** | Uploaded to the backend server |
-| **Failed** | Max retries exceeded — will retry next cycle |
+| Status            | Meaning                                           |
+| ----------------- | ------------------------------------------------- |
+| **Pending**       | Recorded locally, not yet sent                    |
+| **DeviceSynced**  | Sent to at least one nearby tablet (ACK received) |
+| **BackendSynced** | Uploaded to the backend server                    |
+| **Failed**        | Max retries exceeded — will retry next cycle      |
 
 Background sync runs every **15 minutes** via WorkManager.
 
@@ -172,12 +172,12 @@ apps/mobile/src/
 All state changes are recorded as immutable events — domain tables are projections:
 
 ```typescript
-SessionStarted | SessionEnded
-MemberRegistered | MemberIdentified
-PaymentRecorded
-WeightRecorded
-AwardGranted
-TodoCreated | TodoUpdated | TodoDeleted
+SessionStarted | SessionEnded;
+MemberRegistered | MemberIdentified;
+PaymentRecorded;
+WeightRecorded;
+AwardGranted;
+TodoCreated | TodoUpdated | TodoDeleted;
 ```
 
 Each event includes: `eventId` (UUID), `deviceId`, `sessionId`, `payload`, `idempotencyKey`, `correlationId`.
@@ -194,22 +194,22 @@ Pending → DeviceSynced → BackendSynced
 
 ## Tech Stack
 
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| JavaScript/TS | TypeScript | 5.9.2 |
-| React | React Native | 0.83.4 |
-| Framework | Expo | 55.0 |
-| Routing | expo-router | 55.0 |
-| State | Redux Toolkit | 2.8.0 |
-| Testing | Jest + jest-expo | 29.7 / 55.0 |
-| Storybook | @storybook/react-native | 8.6 |
-| Kotlin | Kotlin | 2.1.20 |
-| Compiler | KSP | 2.1.20-2.0.1 |
-| Database | Room | 2.7.1 |
-| Encryption | SQLCipher | 4.5.4 |
-| Sync | Nearby API | 19.3.0 |
-| Background | WorkManager | 2.10.0 |
-| Build | Gradle | 9.0 |
+| Layer         | Technology              | Version      |
+| ------------- | ----------------------- | ------------ |
+| JavaScript/TS | TypeScript              | 5.9.2        |
+| React         | React Native            | 0.83.4       |
+| Framework     | Expo                    | 55.0         |
+| Routing       | expo-router             | 55.0         |
+| State         | Redux Toolkit           | 2.8.0        |
+| Testing       | Jest + jest-expo        | 29.7 / 55.0  |
+| Storybook     | @storybook/react-native | 8.6          |
+| Kotlin        | Kotlin                  | 2.1.20       |
+| Compiler      | KSP                     | 2.1.20-2.0.1 |
+| Database      | Room                    | 2.7.1        |
+| Encryption    | SQLCipher               | 4.5.4        |
+| Sync          | Nearby API              | 19.3.0       |
+| Background    | WorkManager             | 2.10.0       |
+| Build         | Gradle                  | 9.0          |
 
 ---
 
@@ -245,14 +245,14 @@ See [08-auth-security.md](./08-auth-security.md) for full details.
 
 Rules live in `.github/instructions/` and auto-apply to all `*.ts/tsx/js/jsx` files:
 
-| File | Scope |
-|---|---|
-| `react-core.instructions.md` | Components, hooks, Redux, touch handling |
-| `react-typescript.instructions.md` | Interfaces, generics, strict mode |
-| `react-archiecture.instructions.md` | Feature-first layout, barrel exports |
-| `react-performance.instructions.md` | FlatList, memoization, bundle size |
-| `react-testing-security.instructions.md` | Testing pyramid, OWASP |
-| `datasync.instructions.md` | Kotlin bridge, event model |
+| File                                     | Scope                                    |
+| ---------------------------------------- | ---------------------------------------- |
+| `react-core.instructions.md`             | Components, hooks, Redux, touch handling |
+| `react-typescript.instructions.md`       | Interfaces, generics, strict mode        |
+| `react-archiecture.instructions.md`      | Feature-first layout, barrel exports     |
+| `react-performance.instructions.md`      | FlatList, memoization, bundle size       |
+| `react-testing-security.instructions.md` | Testing pyramid, OWASP                   |
+| `datasync.instructions.md`               | Kotlin bridge, event model               |
 
 **Key principles:**
 
@@ -269,12 +269,12 @@ Rules live in `.github/instructions/` and auto-apply to all `*.ts/tsx/js/jsx` fi
 
 Specialized agents in `.github/agents/`:
 
-| Agent | When to Use |
-|---|---|
-| **Coding_Agent** | Writing or refactoring components, hooks, screens, slices |
-| **Planning_Agent** | Breaking down a feature before implementation |
-| **Review_Agent** | Auditing code for bugs, architecture violations, security |
-| **Testing_Agent** | Generating or auditing unit, integration, and E2E tests |
+| Agent              | When to Use                                               |
+| ------------------ | --------------------------------------------------------- |
+| **Coding_Agent**   | Writing or refactoring components, hooks, screens, slices |
+| **Planning_Agent** | Breaking down a feature before implementation             |
+| **Review_Agent**   | Auditing code for bugs, architecture violations, security |
+| **Testing_Agent**  | Generating or auditing unit, integration, and E2E tests   |
 
 ---
 
@@ -321,19 +321,19 @@ reactNativeArchitectures=arm64-v8a
 
 ## Documentation Index
 
-| File | Content |
-|---|---|
-| [01-project-setup.md](./01-project-setup.md) | Prerequisites, installation, configuration |
-| [02-architecture.md](./02-architecture.md) | 4-layer design, data flow |
-| [03-datasync-module.md](./03-datasync-module.md) | Room, SQLCipher, KSP setup |
-| [04-event-model.md](./04-event-model.md) | Event envelope, idempotency, all 10 types |
-| [05-cross-tablet-sync.md](./05-cross-tablet-sync.md) | Nearby Connections, device discovery |
-| [06-backend-sync.md](./06-backend-sync.md) | WorkManager, batch upload, retry logic |
-| [07-nfc-scales.md](./07-nfc-scales.md) | NFC reading, BLE scale parsing |
-| [08-auth-security.md](./08-auth-security.md) | JWT, encryption, keystore |
-| [09-testing-guide.md](./09-testing-guide.md) | Jest, mocking, testing pyramid |
-| [10-ui-components.md](./10-ui-components.md) | Shared UI components, usage |
-| [GUIDE.md](./GUIDE.md) | Blog-style walkthrough from scratch |
+| File                                                 | Content                                                               |
+| ---------------------------------------------------- | --------------------------------------------------------------------- |
+| [01-project-setup.md](./01-project-setup.md)         | Prerequisites, installation, configuration                            |
+| [02-architecture.md](./02-architecture.md)           | 4-layer design, data flow                                             |
+| [03-datasync-module.md](./03-datasync-module.md)     | Room, SQLCipher, KSP setup                                            |
+| [04-event-model.md](./04-event-model.md)             | Event envelope, idempotency, all 10 types                             |
+| [05-cross-tablet-sync.md](./05-cross-tablet-sync.md) | Nearby Connections, device discovery                                  |
+| [06-backend-sync.md](./06-backend-sync.md)           | WorkManager, batch upload, retry logic                                |
+| [07-nfc-scales.md](./07-nfc-scales.md)               | NFC reading, BLE scale parsing                                        |
+| [08-auth-security.md](./08-auth-security.md)         | JWT, encryption, keystore                                             |
+| [09-testing-guide.md](./09-testing-guide.md)         | Jest, mocking, testing pyramid                                        |
+| [10-ui-components.md](./10-ui-components.md)         | Shared UI components, usage                                           |
+| [MONOREPO-QUICK-START.md](./MONOREPO-QUICK-START.md) | Create the monorepo from scratch — CLI commands + manual config files |
 
 ---
 

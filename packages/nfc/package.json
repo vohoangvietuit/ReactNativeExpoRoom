@@ -6,14 +6,13 @@
   "types": "src/index.ts",
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist"
-  },
-  "dependencies": {
-    "react-native-nfc-manager": "^3.17.2"
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit"
   },
   "peerDependencies": {
     "react": "*",
-    "react-native": "*"
+    "react-native": "*",
+    "react-native-nfc-manager": "^3.17.2"
   },
   "devDependencies": {
     "typescript": "~5.8.3",

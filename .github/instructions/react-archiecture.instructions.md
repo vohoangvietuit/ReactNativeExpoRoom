@@ -1,8 +1,89 @@
 ---
-applyTo: "**/*.ts,**/*.tsx,**/*.js,**/*.jsx"
+applyTo: '**/*.ts,**/*.tsx,**/*.js,**/*.jsx'
 ---
 
 # React Native Architecture & Structure
+
+## Monorepo Package Responsibilities
+
+```
+packages/
+  ui/                  # @fitsync/ui — UI components + theme tokens + UI hooks
+    src/
+      theme/           # Design tokens (single source of truth)
+        colors.ts      # Colors, ColorScheme, ThemeColor
+        typography.ts  # Fonts (Platform.select)
+        spacing.ts     # Spacing, BottomTabInset, MaxContentWidth
+        index.ts       # Barrel re-export
+      hooks/           # UI-specific hooks
+        useTheme.ts    # Returns resolved theme colors for current color scheme
+        index.ts
+      Badge/           # Each component in its own folder
+        Badge.tsx
+        types.ts
+        index.ts
+      Button/
+      Card/
+      Input/
+      ListItem/
+      Spinner/
+      StatusIndicator/
+      index.ts         # Package barrel: exports theme, hooks, all components + types
+
+  shared/              # @fitsync/shared — Pure TypeScript (NO React Native imports)
+    src/
+      constants.ts     # BLE UUIDs, sync intervals, service IDs
+      domain.ts        # Business entities (Member, Payment, WeightRecord, etc.)
+      events.ts        # Event types, payloads, outbox, sync batch
+      index.ts
+
+  datasync/            # @fitsync/datasync — Expo Module (Room + SQLCipher bridge)
+  nfc/                 # @fitsync/nfc — NFC card reader
+  ble-scale/           # @fitsync/ble-scale — BLE weight scale reader
+  tsconfig/            # Shared TypeScript configs
+```
+
+### Package Boundary Rules
+
+| Content                                    | Package                        |
+| ------------------------------------------ | ------------------------------ |
+| Colors, Fonts, Spacing, design tokens      | `@fitsync/ui` (theme/)         |
+| `Platform.select()` or RN-specific styling | `@fitsync/ui` (never `shared`) |
+| UI components (Button, Card, Badge, etc.)  | `@fitsync/ui`                  |
+| `useTheme()`, `useColorScheme()` wrappers  | `@fitsync/ui` (hooks/)         |
+| Business domain types (Member, Payment)    | `@fitsync/shared`              |
+| Event types, payloads, sync contracts      | `@fitsync/shared`              |
+| BLE/NFC UUIDs, sync intervals, constants   | `@fitsync/shared`              |
+| Screen components, Redux slices            | `apps/mobile` (features/)      |
+| App-specific themed wrappers (ThemedText)  | `apps/mobile` (components/)    |
+
+```typescript
+// ✅ GOOD: App re-exports theme from @fitsync/ui
+// apps/mobile/src/constants/theme.ts
+export { Colors, Fonts, Spacing, BottomTabInset, MaxContentWidth } from '@fitsync/ui';
+export type { ColorScheme, ThemeColor } from '@fitsync/ui';
+
+// ✅ GOOD: UI component imports theme from same package
+// packages/ui/src/Button/Button.tsx
+import { Colors } from '../theme/colors';
+
+// ❌ BAD: Platform.select() in @fitsync/shared
+import { Platform } from 'react-native'; // NEVER in shared
+
+// ❌ BAD: Duplicating color values instead of importing from theme
+const Colors = { light: { text: '#000000' } }; // NEVER duplicate
+```
+
+### UI Component Folder Pattern
+
+Each component in `@fitsync/ui` follows this structure:
+
+```
+ComponentName/
+  ComponentName.tsx    # Implementation (imports from ../theme/colors)
+  types.ts             # Props interface (imports ColorScheme from ../theme/colors)
+  index.ts             # Barrel: export { ComponentName } + export type { Props }
+```
 
 ## Directory Structure
 
@@ -255,106 +336,78 @@ export interface ButtonProps {
 
 ```
 features/auth/
-  pages/              # Auth route components
-    LoginPage.tsx     # Route: /login
-    RegisterPage.tsx  # Route: /register
-    ForgotPasswordPage.tsx # Route: /forgot-password
+  screens/            # Auth screen components
+    LoginScreen.tsx
+    RegisterScreen.tsx
 
   components/         # Auth-specific components
-    LoginForm/        # Used by LoginPage
-      index.ts
+    LoginForm/
       LoginForm.tsx
-      LoginForm.module.css
-      LoginForm.test.tsx
-    RegisterForm/     # Used by RegisterPage
+      types.ts
       index.ts
-      RegisterForm.tsx
-      RegisterForm.module.css
-    AuthGuard/        # Protects authenticated routes
-      index.ts
-      AuthGuard.tsx
 
   hooks/              # Auth-specific hooks
-    useAuth.ts        # Main auth hook
-    useLogin.ts       # Login logic
-    useRegister.ts    # Registration logic
-    useAuthGuard.ts   # Route protection
+    useAuth.ts
+    useLogin.ts
 
   services/           # Auth API calls
-    authService.ts    # Login, register, logout APIs
-    tokenService.ts   # Token management
+    authService.ts
+    tokenService.ts
 
   store/              # Auth state management
-    authSlice.ts      # Redux slice for auth
-    authSelectors.ts  # Reusable selectors
+    authSlice.ts      # Redux slice + thunks
+    __tests__/
+      authSlice.test.tsx
 
   types/              # Auth-specific types
-    auth.types.ts     # Auth-related types
-    user.types.ts     # User data types
-
-  utils/              # Auth utilities
-    validatePassword.ts
-    formatAuthError.ts
+    index.ts
 
   index.ts            # Feature barrel export
 
-# All other features follow the same structure:
-# features/products/, features/orders/, features/dashboard/, etc.
+# FitSync features: auth, session, member, devices, sync, todo, weigh
 ```
 
 ### Feature Barrel Exports (Auth Example)
 
 ```typescript
 // features/auth/index.ts
-// Pages
-export { LoginPage } from "./pages/LoginPage";
-export { RegisterPage } from "./pages/RegisterPage";
-export { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+// Screens
+export { default as LoginScreen } from './screens/LoginScreen';
 
-// Components
-export { LoginForm } from "./components/LoginForm";
-export { RegisterForm } from "./components/RegisterForm";
-export { AuthGuard } from "./components/AuthGuard";
+// Thunks & Actions
+export { loginThunk, restoreSessionThunk, logoutThunk } from './store/authSlice';
 
-// Hooks
-export { useAuth } from "./hooks/useAuth";
-export { useLogin } from "./hooks/useLogin";
-export { useRegister } from "./hooks/useRegister";
+// Hooks (when created)
+// export { useAuth } from './hooks/useAuth';
 
-// Services
-export { authService } from "./services/authService";
-
-// Types
-export type {
-  AuthUser,
-  LoginCredentials,
-  RegisterData,
-  AuthState,
-} from "./types";
-
-// Other features follow the same export pattern
-// features/products/index.ts, features/orders/index.ts, etc.
+// Types (when created)
+// export type { AuthUser, LoginCredentials } from './types';
 ```
 
 ### Cross-Feature Dependencies
 
 ```typescript
-// ✅ GOOD: Feature importing shared components
-import { Button } from "@/components/common/Button";
-import { Modal } from "@/components/common/Modal";
+// ✅ GOOD: Feature importing from @fitsync/ui package
+import { Button, Card } from '@fitsync/ui';
+import { Colors, Spacing } from '@fitsync/ui';
+
+// ✅ GOOD: Feature importing from @fitsync/shared package
+import { EVENT_TYPES, type Member } from '@fitsync/shared';
+
+// ✅ GOOD: Feature importing app-level shared components
+import { ThemedText } from '@/components/themed-text';
 
 // ✅ GOOD: Feature importing shared hooks
-import { useApi } from "@/hooks/useApi";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useAppSelector, useAppDispatch } from '@/hooks/useStore';
 
-// ✅ GOOD: Feature importing shared services
-import { apiClient } from "@/services/api/client";
+// ✅ GOOD: Feature importing app-scoped theme re-export
+import { Colors, Spacing } from '@/constants/theme';
 
 // ❌ AVOID: Direct feature-to-feature imports
-import { useOtherFeature } from "../other-feature/hooks/useOtherFeature"; // ❌
+import { useOtherFeature } from '../other-feature/hooks/useOtherFeature'; // ❌
 
-// ✅ BETTER: Use shared state or context
-import { useAppSelector } from "@/hooks/useAppSelector";
+// ✅ BETTER: Use shared state via Redux
+import { useAppSelector } from '@/hooks/useStore';
 ```
 
 ## Import Organization
@@ -363,24 +416,24 @@ import { useAppSelector } from "@/hooks/useAppSelector";
 
 ```typescript
 // 1. React and React-related
-import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router } from "react-router-dom";
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
 
 // 2. External libraries
-import axios from "axios";
-import { format } from "date-fns";
+import axios from 'axios';
+import { format } from 'date-fns';
 
 // 3. Internal utilities and services
-import { api } from "@/services";
-import { formatCurrency } from "@/utils";
+import { api } from '@/services';
+import { formatCurrency } from '@/utils';
 
 // 4. Internal components and features
-import { Button } from "@/components/common";
-import { useAuth } from "@/features/auth";
+import { Button } from '@/components/common';
+import { useAuth } from '@/features/auth';
 
 // 5. Relative imports
-import { validateForm } from "./utils";
-import styles from "./Component.module.css";
+import { validateForm } from './utils';
+import styles from './Component.module.css';
 ```
 
 ### Path Aliases (tsconfig.json)
@@ -507,7 +560,7 @@ const [isOpen, setIsOpen] = useState(false);
 const { theme, setTheme } = useTheme();
 
 // Server state - API data
-const { data: users, isLoading } = useQuery("users", fetchUsers);
+const { data: users, isLoading } = useQuery('users', fetchUsers);
 
 // Global state - complex app state
 const dispatch = useAppDispatch();
@@ -524,23 +577,71 @@ assets/
     logos/
     banners/
     avatars/
+    tabIcons/          # Tab bar icons
 
   icons/               # SVG icons only
     ui/                # UI icons (arrows, close, etc)
     social/            # Social media icons
 
   fonts/               # Custom fonts
-  styles/              # Global CSS files
-    globals.css
-    variables.css
+  sounds/              # Audio assets for mobile
+  animations/          # Lottie or other animation files
+```
+
+### Theme Tokens (packages/ui/src/theme/)
+
+Theme tokens are the single source of truth for all visual styling:
+
+```
+packages/ui/src/theme/
+  colors.ts            # Colors (light/dark), ColorScheme, ThemeColor type
+  typography.ts        # Fonts (Platform.select — ios/android/web)
+  spacing.ts           # Spacing scale, BottomTabInset, MaxContentWidth
+  index.ts             # Barrel re-export
+```
+
+```typescript
+// colors.ts
+export const Colors = {
+  light: { text: '#000000', background: '#ffffff', backgroundElement: '#F0F0F3', ... },
+  dark:  { text: '#ffffff', background: '#000000', backgroundElement: '#212225', ... },
+} as const;
+
+export type ColorScheme = 'light' | 'dark';
+export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+
+// spacing.ts
+export const Spacing = { half: 2, one: 4, two: 8, three: 16, four: 24, five: 32, six: 64 } as const;
+```
+
+### Theme Usage in App Code
+
+```typescript
+// App-level re-export (apps/mobile/src/constants/theme.ts)
+export { Colors, Fonts, Spacing, BottomTabInset, MaxContentWidth } from '@fitsync/ui';
+export type { ColorScheme, ThemeColor } from '@fitsync/ui';
+
+// In components — import from @/constants/theme (resolved via re-export)
+import { Colors, Spacing } from '@/constants/theme';
+
+// Or use the hook
+import { useTheme } from '@fitsync/ui';
+const theme = useTheme(); // Returns Colors.light or Colors.dark
+```
+
+### Global CSS
+
+```
+src/
+  global.css           # Global CSS variables (NativeWind / web styles)
 ```
 
 ### Asset Import Patterns
 
 ```typescript
 // Static imports for bundled assets
-import logoImage from "@/assets/images/logo.png";
-import { ReactComponent as CloseIcon } from "@/assets/icons/close.svg";
+import logoImage from '@/assets/images/logo.png';
+import { ReactComponent as CloseIcon } from '@/assets/icons/close.svg';
 
 // Dynamic imports for conditional assets
 const loadIcon = async (name: string) => {
@@ -555,12 +656,15 @@ const loadIcon = async (name: string) => {
 2. **Feature isolation** - each feature should be self-contained and independent
 3. **Shared components only** - `/components` contains ONLY reusable components
 4. **Barrel exports** - each feature exports through index.ts for clean imports
-5. **Feature pages** - route components live in `features/[feature]/pages/`
+5. **Feature screens** - screen components live in `features/[feature]/screens/`
 6. **No cross-feature imports** - features communicate through shared state/context
-7. **Consistent feature structure** - pages, components, hooks, services, store, types
+7. **Consistent feature structure** - screens, components, hooks, services, store, types
 8. **Path aliases** - use `@/features/[feature]` for feature imports
-9. **Route organization** - central route config importing from features
-10. **Feature-specific testing** - tests co-located with feature code
+9. **Route organization** - expo-router file-based routing in `app/`
+10. **Feature-specific testing** - tests co-located with feature code (`__tests__/`)
+11. **Theme in @fitsync/ui** - all design tokens live in `packages/ui/src/theme/`
+12. **Pure TS in @fitsync/shared** - no React Native imports in shared package
+13. **No duplicated theme values** - import Colors/Spacing from `@fitsync/ui` or `@/constants/theme`
 
 ### Feature Organization Rules
 
@@ -568,9 +672,10 @@ const loadIcon = async (name: string) => {
 
 - Put feature-specific logic in `features/[feature]/`
 - Export everything through feature barrel (`features/[feature]/index.ts`)
-- Use shared components from `/components/common/`
-- Place route components in `features/[feature]/pages/`
+- Use UI components from `@fitsync/ui` or `@/components/`
+- Place screen components in `features/[feature]/screens/`
 - Keep feature state in `features/[feature]/store/`
+- Import theme from `@/constants/theme` (re-exports `@fitsync/ui`)
 
 #### ❌ DON'T:
 
@@ -578,6 +683,8 @@ const loadIcon = async (name: string) => {
 - Put feature-specific components in shared `/components/`
 - Mix feature logic in shared folders
 - Create deep nested folder structures within features
+- Duplicate color/spacing values — always import from theme
+- Put `Platform.select()` calls in `@fitsync/shared`
 - Violate feature boundaries
 
 ### Migration Guide from Page-First to Feature-First

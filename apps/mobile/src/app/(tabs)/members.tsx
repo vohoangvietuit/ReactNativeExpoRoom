@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MemberIdentifyScreen from '@/features/member/screens/MemberIdentifyScreen';
 import RegisterMemberScreen from '@/features/member/screens/RegisterMemberScreen';
+import { Colors, FontSize, Spacing, BorderRadius } from '@/constants/theme';
 
 type MemberMode = 'identify' | 'register';
 
@@ -40,36 +41,36 @@ export default function MembersTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.light.surface,
   },
   segmentBar: {
     flexDirection: 'row',
-    backgroundColor: '#E8E8E8',
-    margin: 12,
-    marginBottom: 4,
-    borderRadius: 10,
-    padding: 4,
+    backgroundColor: Colors.light.backgroundElement,
+    margin: Spacing.three,
+    marginBottom: Spacing.one,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.one,
   },
   segment: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: Spacing.two,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: BorderRadius.md,
   },
   segmentActive: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
+    backgroundColor: Colors.light.card,
+    shadowColor: Colors.light.text,
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 2,
     elevation: 2,
   },
   segmentText: {
-    fontSize: 14,
+    fontSize: FontSize.body,
     fontWeight: '600',
-    color: '#888',
+    color: Colors.light.textMuted,
   },
   segmentTextActive: {
-    color: '#007AFF',
+    color: Colors.light.primary,
   },
 });

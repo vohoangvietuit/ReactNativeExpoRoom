@@ -36,6 +36,7 @@ import {
   clearError,
 } from '../store/devicesSlice';
 import * as DataSync from '@fitsync/datasync';
+import { Colors, FontSize, Spacing, BorderRadius } from '@/constants/theme';
 
 const NEARBY_PERMISSIONS = [
   PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
@@ -661,7 +662,7 @@ export default function DevicesScreen() {
                           disabled={isThisReconnecting}
                         >
                           {isThisReconnecting ? (
-                            <ActivityIndicator size="small" color="#007AFF" />
+                            <ActivityIndicator size="small" color={Colors.light.primary} />
                           ) : (
                             <Text style={styles.reconnectButtonText}>Reconnect</Text>
                           )}
@@ -740,7 +741,7 @@ export default function DevicesScreen() {
           >
             {isSyncing ? (
               <View style={styles.syncRow}>
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={Colors.light.textOnPrimary} size="small" />
                 <Text style={styles.syncButtonText}> Syncing…</Text>
               </View>
             ) : (
@@ -849,65 +850,65 @@ export default function DevicesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#f5f5f5',
+    padding: Spacing.three,
+    backgroundColor: Colors.light.surface,
   },
   header: {
-    fontSize: 24,
+    fontSize: FontSize.xxl,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: Spacing.three,
   },
   statusRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
+    gap: Spacing.two,
+    marginBottom: Spacing.three,
   },
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: BorderRadius.xl,
   },
   badgeActive: {
-    backgroundColor: '#d4edda',
+    backgroundColor: Colors.light.successLight,
   },
   badgeInactive: {
-    backgroundColor: '#e9ecef',
+    backgroundColor: Colors.light.backgroundElement,
   },
   badgeConnected: {
-    backgroundColor: '#d4edda',
+    backgroundColor: Colors.light.successLight,
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: FontSize.sm,
     fontWeight: '600',
   },
   errorBox: {
-    backgroundColor: '#f8d7da',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+    backgroundColor: Colors.light.dangerLight,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.three,
+    marginBottom: Spacing.three,
     flexDirection: 'row',
     alignItems: 'center',
   },
   errorText: {
-    color: '#721c24',
+    color: Colors.light.dangerDark,
     flex: 1,
-    fontSize: 13,
+    fontSize: FontSize.caption,
   },
   errorDismiss: {
-    color: '#721c24',
+    color: Colors.light.dangerDark,
     fontWeight: 'bold',
-    fontSize: 16,
-    paddingLeft: 8,
+    fontSize: FontSize.base,
+    paddingLeft: Spacing.two,
   },
   section: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: Colors.light.card,
+    borderRadius: BorderRadius.lg,
     padding: 14,
-    marginBottom: 16,
+    marginBottom: Spacing.three,
   },
   sectionActive: {
     borderWidth: 1,
-    borderColor: '#34c759',
+    borderColor: Colors.light.success,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -916,13 +917,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: FontSize.base,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: Spacing.two,
   },
   disconnectAllText: {
-    color: '#ff3b30',
-    fontSize: 13,
+    color: Colors.light.danger,
+    fontSize: FontSize.caption,
     fontWeight: '600',
   },
   connectedItem: {
@@ -930,19 +931,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#eee',
+    borderBottomColor: Colors.light.borderLight,
   },
   connectedInfo: {
     flex: 1,
   },
   connectedName: {
-    fontSize: 15,
+    fontSize: FontSize.md,
     fontWeight: '600',
   },
   connectedId: {
-    color: '#999',
-    fontSize: 11,
-    marginTop: 2,
+    color: Colors.light.textMuted,
+    fontSize: FontSize.xs,
+    marginTop: Spacing.half,
     fontFamily: 'monospace',
   },
   pairedItem: {
@@ -950,7 +951,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#eee',
+    borderBottomColor: Colors.light.borderLight,
   },
   pairedInfo: {
     flex: 1,
@@ -958,16 +959,16 @@ const styles = StyleSheet.create({
   pairedNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.two,
   },
   pairedName: {
-    fontSize: 15,
+    fontSize: FontSize.md,
     fontWeight: '600',
   },
   pairedStatus: {
-    color: '#999',
-    fontSize: 12,
-    marginTop: 2,
+    color: Colors.light.textMuted,
+    fontSize: FontSize.sm,
+    marginTop: Spacing.half,
     marginLeft: 20,
   },
   statusDot: {
@@ -976,22 +977,22 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   dotConnected: {
-    backgroundColor: '#34c759',
+    backgroundColor: Colors.light.dotConnected,
   },
   dotNearby: {
-    backgroundColor: '#f0ad4e',
+    backgroundColor: Colors.light.dotNearby,
   },
   dotOffline: {
-    backgroundColor: '#ccc',
+    backgroundColor: Colors.light.dotOffline,
   },
   pairedActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.two,
   },
   reconnectButton: {
     borderWidth: 1,
-    borderColor: '#007AFF',
+    borderColor: Colors.light.primary,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -999,219 +1000,219 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reconnectButtonDisabled: {
-    borderColor: '#ccc',
+    borderColor: Colors.light.dotOffline,
   },
   reconnectButtonText: {
-    color: '#007AFF',
-    fontSize: 12,
+    color: Colors.light.primary,
+    fontSize: FontSize.sm,
     fontWeight: '600',
   },
   removeButton: {
     borderWidth: 1,
-    borderColor: '#999',
+    borderColor: Colors.light.textMuted,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   removeButtonText: {
-    color: '#999',
-    fontSize: 12,
+    color: Colors.light.textMuted,
+    fontSize: FontSize.sm,
     fontWeight: '600',
   },
   disconnectButton: {
     borderWidth: 1,
-    borderColor: '#ff3b30',
+    borderColor: Colors.light.danger,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   disconnectButtonText: {
-    color: '#ff3b30',
-    fontSize: 12,
+    color: Colors.light.danger,
+    fontSize: FontSize.sm,
     fontWeight: '600',
   },
   syncButton: {
-    backgroundColor: '#34c759',
-    borderRadius: 8,
+    backgroundColor: Colors.light.success,
+    borderRadius: BorderRadius.md,
     padding: 14,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: Spacing.three,
   },
   syncingButton: {
-    backgroundColor: '#a8d8b9',
+    backgroundColor: Colors.light.successMuted,
   },
   syncRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   syncButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: Colors.light.textOnPrimary,
+    fontSize: FontSize.base,
     fontWeight: '600',
   },
   syncResult: {
-    color: '#666',
-    fontSize: 12,
+    color: Colors.light.textTertiary,
+    fontSize: FontSize.sm,
     textAlign: 'center',
     marginTop: 6,
   },
   syncResultSuccess: {
-    color: '#1a7f3c',
+    color: Colors.light.successDark,
     fontWeight: '600',
   },
   syncStatusRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: Spacing.three,
     marginTop: 10,
-    marginBottom: 4,
-    paddingHorizontal: 4,
+    marginBottom: Spacing.one,
+    paddingHorizontal: Spacing.one,
   },
   syncStatusItem: {
-    fontSize: 12,
+    fontSize: FontSize.sm,
   },
   syncStatusLabel: {
-    color: '#999',
+    color: Colors.light.textMuted,
   },
   syncStatusValue: {
-    color: '#333',
+    color: Colors.light.text,
     fontWeight: '600',
   },
   syncStatusFailed: {
-    color: '#ff3b30',
+    color: Colors.light.danger,
   },
   autoSyncToggle: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
+    borderColor: Colors.light.dotOffline,
+    borderRadius: BorderRadius.md,
     padding: 10,
     alignItems: 'center',
     marginTop: 10,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: Colors.light.surface,
   },
   autoSyncActive: {
-    borderColor: '#007AFF',
-    backgroundColor: '#e8f0fe',
+    borderColor: Colors.light.primary,
+    backgroundColor: Colors.light.primaryLight,
   },
   autoSyncText: {
-    fontSize: 14,
+    fontSize: FontSize.body,
     fontWeight: '600',
-    color: '#333',
+    color: Colors.light.text,
   },
   advertisingToggleRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
+    gap: Spacing.two,
+    marginTop: Spacing.one,
   },
   toggleButton: {
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.four,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
   },
   toggleButtonActive: {
-    backgroundColor: '#34c759',
-    borderColor: '#34c759',
+    backgroundColor: Colors.light.success,
+    borderColor: Colors.light.success,
   },
   toggleButtonInactive: {
-    backgroundColor: '#f8f8f8',
-    borderColor: '#ccc',
+    backgroundColor: Colors.light.surface,
+    borderColor: Colors.light.dotOffline,
   },
   toggleButtonText: {
-    fontSize: 15,
+    fontSize: FontSize.md,
     fontWeight: '700',
   },
   toggleButtonTextActive: {
-    color: '#fff',
+    color: Colors.light.textOnPrimary,
   },
   toggleButtonTextInactive: {
-    color: '#666',
+    color: Colors.light.textTertiary,
   },
   advertisingPaused: {
-    color: '#999',
-    fontSize: 13,
+    color: Colors.light.textMuted,
+    fontSize: FontSize.caption,
     fontStyle: 'italic',
-    marginTop: 4,
+    marginTop: Spacing.one,
   },
   deviceNameLabel: {
-    color: '#666',
-    fontSize: 13,
-    marginTop: 8,
+    color: Colors.light.textTertiary,
+    fontSize: FontSize.caption,
+    marginTop: Spacing.two,
   },
   buttonRow: {
-    marginBottom: 12,
+    marginBottom: Spacing.three,
   },
   button: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
+    backgroundColor: Colors.light.primary,
+    borderRadius: BorderRadius.md,
     padding: 14,
     alignItems: 'center',
   },
   stopButton: {
-    backgroundColor: '#ff3b30',
+    backgroundColor: Colors.light.danger,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: Colors.light.textOnPrimary,
+    fontSize: FontSize.base,
     fontWeight: '600',
   },
   spinner: {
-    marginVertical: 8,
+    marginVertical: Spacing.two,
   },
   deviceItem: {
-    backgroundColor: '#fff',
+    backgroundColor: Colors.light.card,
     padding: 14,
-    borderRadius: 8,
-    marginBottom: 8,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.two,
     flexDirection: 'row',
     alignItems: 'center',
   },
   deviceConnected: {
     borderWidth: 1,
-    borderColor: '#34c759',
+    borderColor: Colors.light.success,
   },
   deviceInfo: {
     flex: 1,
   },
   deviceName: {
-    fontSize: 15,
+    fontSize: FontSize.md,
     fontWeight: '600',
   },
   deviceId: {
-    color: '#999',
-    fontSize: 11,
-    marginTop: 2,
+    color: Colors.light.textMuted,
+    fontSize: FontSize.xs,
+    marginTop: Spacing.half,
     fontFamily: 'monospace',
   },
   connectText: {
-    color: '#007AFF',
+    color: Colors.light.primary,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: FontSize.body,
   },
   connectedBadgeText: {
-    color: '#34c759',
+    color: Colors.light.success,
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: FontSize.caption,
   },
   empty: {
     textAlign: 'center',
-    color: '#999',
-    marginTop: 16,
+    color: Colors.light.textMuted,
+    marginTop: Spacing.three,
     lineHeight: 20,
   },
   debugToggle: {
     paddingVertical: 10,
-    paddingHorizontal: 4,
-    marginTop: 8,
+    paddingHorizontal: Spacing.one,
+    marginTop: Spacing.two,
   },
   debugToggleText: {
-    color: '#888',
-    fontSize: 12,
+    color: Colors.light.textMuted,
+    fontSize: FontSize.sm,
     fontWeight: '600',
   },
   logPanel: {
-    marginTop: 12,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
+    marginTop: Spacing.three,
+    backgroundColor: Colors.light.darkPanel,
+    borderRadius: BorderRadius.md,
     overflow: 'hidden',
     maxHeight: 200,
   },
@@ -1221,30 +1222,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#2a2a2a',
+    backgroundColor: Colors.light.darkPanelHeader,
   },
   logTitle: {
-    color: '#ccc',
-    fontSize: 12,
+    color: Colors.light.dotOffline,
+    fontSize: FontSize.sm,
     fontWeight: '600',
   },
   logClear: {
-    color: '#888',
-    fontSize: 11,
+    color: Colors.light.textMuted,
+    fontSize: FontSize.xs,
   },
   logScroll: {
-    padding: 8,
+    padding: Spacing.two,
   },
   logBody: {
-    padding: 8,
+    padding: Spacing.two,
   },
   logEmpty: {
-    color: '#555',
-    fontSize: 11,
+    color: Colors.light.darkPanelMuted,
+    fontSize: FontSize.xs,
     fontStyle: 'italic',
   },
   logLine: {
-    color: '#a8d8a8',
+    color: Colors.light.darkPanelText,
     fontSize: 10,
     fontFamily: 'monospace',
     lineHeight: 16,

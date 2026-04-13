@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useStore';
 import { loginThunk, clearError } from '../store/authSlice';
+import { Colors, FontSize, Spacing, BorderRadius } from '@/constants/theme';
 
 export default function LoginScreen() {
   const dispatch = useAppDispatch();
@@ -48,7 +56,7 @@ export default function LoginScreen() {
         accessibilityLabel="Login"
       >
         {isLoading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={Colors.light.textOnPrimary} />
         ) : (
           <Text style={styles.buttonText}>Login</Text>
         )}
@@ -63,51 +71,51 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#f5f5f5',
+    padding: Spacing.four,
+    backgroundColor: Colors.light.surface,
   },
   title: {
-    fontSize: 32,
+    fontSize: FontSize.title,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: Spacing.one,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: FontSize.base,
     textAlign: 'center',
-    color: '#666',
-    marginBottom: 32,
+    color: Colors.light.textTertiary,
+    marginBottom: Spacing.five,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    backgroundColor: '#fff',
-    fontSize: 16,
+    borderColor: Colors.light.border,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.three,
+    marginBottom: Spacing.three,
+    backgroundColor: Colors.light.card,
+    fontSize: FontSize.base,
   },
   button: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
+    backgroundColor: Colors.light.primary,
+    borderRadius: BorderRadius.md,
     padding: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: Spacing.two,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: Colors.light.textOnPrimary,
+    fontSize: FontSize.base,
     fontWeight: '600',
   },
   error: {
-    color: 'red',
+    color: Colors.light.danger,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.two,
   },
   hint: {
     textAlign: 'center',
-    color: '#999',
-    marginTop: 16,
-    fontSize: 12,
+    color: Colors.light.textMuted,
+    marginTop: Spacing.three,
+    fontSize: FontSize.sm,
   },
 });

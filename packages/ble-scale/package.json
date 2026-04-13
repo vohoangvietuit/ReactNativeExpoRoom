@@ -6,14 +6,13 @@
   "types": "src/index.ts",
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist"
-  },
-  "dependencies": {
-    "react-native-ble-plx": "3.2.1"
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit"
   },
   "peerDependencies": {
     "react": "*",
-    "react-native": "*"
+    "react-native": "*",
+    "react-native-ble-plx": "^3.2.1"
   },
   "devDependencies": {
     "typescript": "~5.8.3",
